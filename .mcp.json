@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"triage-mcp": {
+			"type": "stdio",
+			"command": "pnpm",
+			"args": ["exec", "tsx", "src/transports/stdio.ts"],
+			"env": {
+				"SCENARIO": "checkout-latency"
+			}
+		}
+	}
+}

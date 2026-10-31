@@ -1,0 +1,42 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../triage-mcp-worktrees"
+		}
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"activityBar.activeBackground": "#de7d38",
+			"activityBar.activeBorder": "#15202b",
+			"activityBar.background": "#de7d38",
+			"activityBar.foreground": "#15202b",
+			"activityBar.inactiveForeground": "#15202b99",
+			"activityBarBadge.background": "#92edb8",
+			"activityBarBadge.foreground": "#15202b",
+			"activityBarTop.activeBackground": "#de7d38",
+			"activityBarTop.activeBorder": "#15202b",
+			"activityBarTop.background": "#de7d38",
+			"activityBarTop.foreground": "#15202b",
+			"activityBarTop.inactiveForeground": "#15202b99",
+			"commandCenter.border": "#e7e7e799",
+			"commandCenter.foreground": "#e7e7e7",
+			"sash.hoverBorder": "#de7d38",
+			"statusBar.background": "#c36420",
+			"statusBar.debuggingBackground": "#c36420",
+			"statusBar.debuggingForeground": "#e7e7e7",
+			"statusBar.foreground": "#e7e7e7",
+			"statusBar.inactiveBackground": "#c36420",
+			"statusBarItem.hoverBackground": "#de7d38",
+			"statusBarItem.remoteBackground": "#24db70",
+			"statusBarItem.remoteForeground": "#e7e7e7",
+			"titleBar.activeBackground": "#c36420",
+			"titleBar.activeForeground": "#e7e7e7",
+			"titleBar.inactiveBackground": "#c3642099",
+			"titleBar.inactiveForeground": "#e7e7e799"
+		},
+		"peacock.color": "#c36420"
+	}
+}

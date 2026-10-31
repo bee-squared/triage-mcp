@@ -1,0 +1,63 @@
+# ---------- Dependencies ----------
+node_modules/
+.pnpm-store/
+
+# ---------- Build output ----------
+dist/
+*.tsbuildinfo
+*.tgz
+
+# ---------- Environment and secrets ----------
+# Keep .env.example committed; never commit real keys (ANTHROPIC_API_KEY).
+.env
+.env.*
+!.env.example
+
+# Private keys and certificates.
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+
+# Local registry auth (a shared .npmrc can still be committed).
+.npmrc.local
+
+# ---------- Tests and coverage ----------
+coverage/
+
+# ---------- Evals ----------
+# Evalite's local results DB and any exported HTML reports.
+# The CI job uploads reports as build artifacts, so they don't belong in git.
+.evalite/
+node_modules/.evalite/
+eval-reports/
+
+# ---------- Agent run traces ----------
+# Raw JSON traces from `pnpm triage` and eval runs.
+# Curated transcripts for recruiters live in docs/transcripts/ (committed).
+.traces/
+
+# ---------- Deploy ----------
+.vercel/
+
+# ---------- Claude Code ----------
+# Commit .claude/settings.json, .claude/agents/, .claude/skills/, .claude/hooks/.
+# Ignore personal overrides and Claude-created worktrees.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/.cc-writes/
+CLAUDE.local.md
+
+# ---------- Logs ----------
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ---------- Editors and OS ----------
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
