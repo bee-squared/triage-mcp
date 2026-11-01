@@ -4,10 +4,13 @@ MCP server that lets an AI assistant triage outages for "Fernhill", a fictional 
 
 ## Commands
 
-- `pnpm dev` - run the stdio server with tsx (SCENARIO defaults to `checkout-latency`)
 - `pnpm check` - Biome format + lint with fixes
 - `pnpm typecheck` - `tsc --noEmit`
 - `pnpm test` - unit + integration tests (no API key needed, must stay under 30s)
+
+Planned, not in `package.json` until their entry points exist:
+
+- `pnpm dev` - run the stdio server with tsx (SCENARIO defaults to `checkout-latency`)
 - `pnpm inspect` - open MCP Inspector against the stdio server
 - `pnpm triage "<question>"` - run the CLI agent (needs ANTHROPIC_API_KEY, costs money)
 - `pnpm eval` - run the eval suite (needs ANTHROPIC_API_KEY, costs money; ask first)

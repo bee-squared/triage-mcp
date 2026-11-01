@@ -37,9 +37,6 @@
 		"test": "vitest run --passWithNoTests",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"eval": "evalite run",
-		"eval:ui": "evalite watch",
-		"wt": "bash scripts/wt.sh",
 		"prepare": "lefthook install"
 	},
 	"dependencies": {

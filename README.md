@@ -28,8 +28,6 @@ No Claude access? Read an example transcript: [docs/transcripts/checkout-latency
 ```sh
 pnpm install
 pnpm test          # deterministic tests, no API key needed
-pnpm triage "Checkout is slow, what's going on?"
-pnpm eval          # needs ANTHROPIC_API_KEY
 ```
 
 ## How it's built
