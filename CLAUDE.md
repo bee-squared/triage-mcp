@@ -11,9 +11,11 @@ MCP server that lets an AI assistant triage outages for "Fernhill", a fictional 
 Planned, not in `package.json` until their entry points exist:
 
 - `pnpm dev` - run the stdio server with tsx (SCENARIO defaults to `checkout-latency`)
+- `pnpm dev:http` - run the HTTP server (`tsx src/transports/http.ts`); add when that entry point exists
 - `pnpm inspect` - open MCP Inspector against the stdio server
 - `pnpm triage "<question>"` - run the CLI agent (needs ANTHROPIC_API_KEY, costs money)
 - `pnpm eval` - run the eval suite (needs ANTHROPIC_API_KEY, costs money; ask first)
+- `pnpm eval:ui` - run the eval suite in watch mode with its UI (`evalite watch`); add when `evals/` exists
 
 Before calling a task done: `pnpm check && pnpm typecheck && pnpm test`.
 
