@@ -1,0 +1,60 @@
+{
+	"name": "triage-mcp",
+	"version": "0.1.0",
+	"private": true,
+	"description": "MCP server (2026-07-28 spec) that lets AI assistants triage outages for a fictional SaaS company, with a layered eval suite that gates every change.",
+	"type": "module",
+	"license": "MIT",
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"llm-evals",
+		"ai-agents",
+		"typescript",
+		"claude",
+		"incident-response"
+	],
+	"engines": {
+		"node": ">=26"
+	},
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "12.16.1",
+			"onFail": "download"
+		},
+		"runtime": {
+			"name": "node",
+			"version": "26.x",
+			"onFail": "download"
+		}
+	},
+	"packageManager": "pnpm@12.16.1",
+	"scripts": {
+		"check": "biome check --write .",
+		"lint": "biome ci .",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"prepare": "lefthook install"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^1.3.0",
+		"@modelcontextprotocol/client": "^2.4.0",
+		"@modelcontextprotocol/hono": "^2.0.2",
+		"@modelcontextprotocol/server": "^2.4.0",
+		"hono": "^4.13.14",
+		"zod": "^4.6.7"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.3",
+		"@types/node": "^26.6.6",
+		"@vitest/coverage-v8": "^5.0.5",
+		"evalite": "^0.19.0",
+		"lefthook": "^2.2.2",
+		"tsx": "^4.23.15",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.5"
+	}
+}
