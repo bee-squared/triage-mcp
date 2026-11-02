@@ -36,7 +36,7 @@
 
   <rect x="30" y="280" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
   <text x="45" y="306" class="t">claude.ai custom connector</text>
-  <text x="45" y="326" class="s">recruiter demo · Streamable HTTP</text>
+  <text x="45" y="326" class="s">hosted demo · Streamable HTTP</text>
 
   <rect x="30" y="370" width="230" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
   <text x="45" y="396" class="t">Triage CLI agent</text>
