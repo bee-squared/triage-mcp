@@ -50,8 +50,17 @@ Before calling a task done: `pnpm check && pnpm typecheck && pnpm test`.
 - When a change moves eval scores, record before/after in CHANGELOG.md.
 - Don't run `pnpm eval` without asking. Prefer `pnpm eval --filter <case>` while iterating.
 
+## Agent roles
+
+@AGENTS.md
+
+- On the user's Mac, Claude never commits. It hands the user a commit message instead.
+- Inside an agent VM (Docker Sandbox or Vercel Sandbox), the orchestrator owns all git and GitHub work and commits as the agent account. Helpers return changes.
+- The sandbox has no ANTHROPIC_API_KEY, so `pnpm eval` and `pnpm triage` can't run there. Ask the user to run them.
+
 ## Worktrees
 
+These rules apply on the user's Mac. A Vercel sandbox uses a fresh git clone with no worktree and no copied `.env`.
 - Feature and agent work happens in Claude Code worktrees under `.claude/worktrees/<name>` (started with `claude --worktree <name>`, branch `worktree-<name>`).
 - A new worktree is a fresh checkout: if `node_modules/` is missing, run `pnpm install --frozen-lockfile --prefer-offline` before anything else.
 - `.env` is copied in automatically via `.worktreeinclude`. Don't recreate or edit it.

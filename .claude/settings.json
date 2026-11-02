@@ -1,3 +1,7 @@
 {
-	"plansDirectory": "./plans"
+	"plansDirectory": "./plans",
+	"sandbox": {
+		"enabled": true,
+		"autoAllowBashIfSandboxed": false
+	}
 }
