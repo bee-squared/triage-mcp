@@ -1,6 +1,6 @@
 # TriageMCP
 
-MCP server that lets an AI assistant triage outages for "Fernhill", a fictional SaaS company, plus a CLI agent and an eval suite that gates every change. Spec: `docs/PRD.md`. All data is synthetic.
+MCP server that lets an AI assistant triage outages for "Fernhill", a fictional SaaS company, plus a CLI agent and an eval suite that gates every change. Spec: `docs/specs/triage-mcp-prd.md`. All data is synthetic.
 
 ## Commands
 
