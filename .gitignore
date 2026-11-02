@@ -35,7 +35,7 @@ eval-reports/
 
 # ---------- Agent run traces ----------
 # Raw JSON traces from `pnpm triage` and eval runs.
-# Curated transcripts for recruiters live in docs/transcripts/ (committed).
+# Curated transcripts for readers live in docs/transcripts/ (committed).
 .traces/
 
 # ---------- Deploy ----------

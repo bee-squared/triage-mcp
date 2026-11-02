@@ -17,24 +17,24 @@
 
 ## 1. Executive summary
 
-TriageMCP is an MCP server that lets an AI assistant triage outages for a fictional SaaS company by querying its service catalog, dependency graph, live signals, deploy log, incident history, runbooks, and on-call roster. It ships with a layered test and eval suite that proves, with numbers, that a model using the server picks the right tools, traces symptoms to the real root cause, avoids inventing data, and asks before taking action. The product exists to give hiring teams verifiable evidence that its builder can design agent-facing tools, implement the current MCP spec, and bake evals into the development loop. Everything runs on static fixture data, so the system is cheap, deterministic, and has a known correct answer for every scenario.
+TriageMCP is an MCP server that lets an AI assistant triage outages for a fictional SaaS company by querying its service catalog, dependency graph, live signals, deploy log, incident history, runbooks, and on-call roster. It ships with a layered test and eval suite that proves, with numbers, that a model using the server picks the right tools, traces symptoms to the real root cause, avoids inventing data, and asks before taking action. The product exists as an open reference implementation: a worked, verifiable example of how to design agent-facing tools, implement the current MCP spec, and bake evals into the development loop. Everything runs on static fixture data, so the system is cheap, deterministic, and has a known correct answer for every scenario.
 
 ---
 
 ## 2. Problem statement
 
-**Primary problem (the builder's).** Engineers interviewing for AI-focused roles (Forward Deployed, Solutions, AI Agent Engineering) claim MCP and eval experience on resumes, but recruiters and hiring managers cannot verify those claims in the 5 to 15 minutes they spend on a candidate's portfolio. Most public MCP demo repos show a single "hello world" tool, no tests, and no evidence of measured model behavior. A hiring evaluator has no fast way to tell whether the candidate understands tool design for non-deterministic consumers or how to measure it.
+**Primary problem (the adopter's).** Engineering teams adopting MCP need to know what a production-minded server looks like, but they cannot judge that in the 5 to 15 minutes they have to assess an example project. Most public MCP demo repos show a single "hello world" tool, no tests, and no evidence of measured model behavior. An adoption lead has no fast way to tell whether a project reflects sound tool design for non-deterministic consumers or how to measure it.
 
 **In-world problem (the story the demo tells).** On-call engineers at SaaS companies lose time during incidents because the service showing symptoms is often not the service that broke. Answering "what changed, what does this look like historically, which runbook applies, and who do I page" means jumping between a service catalog, a deploy log, an incident tracker, and a wiki. That is exactly the multi-source, multi-step lookup an AI assistant with good tools can do quickly, and it is easy to grade because each scenario has one correct root cause.
 
 **Why existing options fall short.**
 
-| Alternative                          | Gap                                                                           |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| Resume bullet or blog post about MCP | No runnable artifact, no proof of quality                                     |
-| Toy MCP server (weather, calculator) | Single tool, no multi-step reasoning, nothing meaningful to evaluate          |
-| Wrapping a real public API           | Non-deterministic data makes evals flaky, requires secrets, risks rate limits |
-| Large agent framework demo           | Hides what the candidate actually built; heavier than the problem requires    |
+| Alternative                            | Gap                                                                           |
+| -------------------------------------- | ----------------------------------------------------------------------------- |
+| Blog post or conference talk about MCP | No runnable artifact, no proof of quality                                     |
+| Toy MCP server (weather, calculator)   | Single tool, no multi-step reasoning, nothing meaningful to evaluate          |
+| Wrapping a real public API             | Non-deterministic data makes evals flaky, requires secrets, risks rate limits |
+| Large agent framework demo             | Hides how the tools and agent loop work; heavier than the problem requires    |
 
 ### Problem diagram
 
@@ -52,7 +52,7 @@ flowchart LR
         B3 --> B4["Matches past incident INC-0142<br/>and runbook RB-07"]
         B4 --> B5["Recommends rollback, names who to page,<br/>drafts status update in under 1 min"]
     end
-    subgraph Proof["What the hiring evaluator sees"]
+    subgraph Proof["What the adoption lead can verify"]
         C1["Live connector they can try"]
         C2["Eval scorecard with pass rates"]
         C3["CI badge: evals gate merges"]
@@ -64,23 +64,23 @@ flowchart LR
 
 ## 3. User personas
 
-### Persona 1: Hiring evaluator (technical recruiter or hiring manager)
+### Persona 1: Adoption lead (engineering lead or manager weighing MCP)
 
 | Attribute    | Detail                                                                                                                                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Context      | Screening 20+ candidates for an AI-focused engineering role; opens linked GitHub repos between calls                                          |
-| Goals        | Decide in under 5 minutes whether the candidate's AI claims are real                                                                          |
+| Context      | Comparing MCP examples and approaches for their organization; opens linked GitHub repos between meetings                                      |
+| Goals        | Decide in under 5 minutes whether this approach is credible enough to study further                                                           |
 | Frustrations | Repos with no README summary, no demo, and no signal of quality; can't run code locally                                                       |
 | Interaction  | Reads the README, looks at the eval scorecard and CI badge, optionally connects the hosted server to Claude, or watches a recorded transcript |
 
-### Persona 2: Technical interviewer (staff engineer at the target company)
+### Persona 2: Implementing engineer (staff engineer building an MCP server)
 
-| Attribute    | Detail                                                                                                                                              |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Context      | Preparing for or running a technical deep-dive on the candidate's portfolio                                                                         |
-| Goals        | Judge tool design quality, eval rigor, code structure, and trade-off reasoning                                                                      |
-| Frustrations | Evals that only check "did it return something," hidden prompt hacks, untestable architecture                                                       |
-| Interaction  | Clones the repo, runs tests and evals locally, reads eval cases and scorers, inspects a failing trace, asks "why did you design the tool this way?" |
+| Attribute    | Detail                                                                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context      | Reviewing this project in depth before applying its patterns to their own MCP server                                                              |
+| Goals        | Judge tool design quality, eval rigor, code structure, and trade-off reasoning                                                                    |
+| Frustrations | Evals that only check "did it return something," hidden prompt hacks, untestable architecture                                                     |
+| Interaction  | Clones the repo, runs tests and evals locally, reads eval cases and scorers, inspects a failing trace, asks "why was the tool designed this way?" |
 
 ### Persona 3: On-call engineer at Fernhill (in-world end user)
 
@@ -95,7 +95,7 @@ flowchart LR
 
 ## 4. Goals and success metrics
 
-**Product goals.** (1) Demonstrate correct, current MCP implementation. (2) Demonstrate eval-driven tool design with measured results. (3) Make both verifiable by a non-technical evaluator in under 5 minutes.
+**Product goals.** (1) Demonstrate correct, current MCP implementation. (2) Demonstrate eval-driven tool design with measured results. (3) Make both verifiable by a non-specialist reader in under 5 minutes.
 
 | Horizon  | Metric                                                                                                                          | Target                                                                       |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -108,7 +108,7 @@ flowchart LR
 | 90 days  | Eval cases in suite                                                                                                             | at least 30 cases across at least 8 scenarios                                |
 | 90 days  | Documented eval-driven improvements (a failing eval led to a tool or description change, with before/after scores in changelog) | at least 3                                                                   |
 | 90 days  | Cross-model comparison published (Sonnet 5.5 vs Haiku 5.5 pass rate, cost per run, latency)                                     | 1 published table                                                            |
-| 90 days  | Interviews or recruiter conversations where the project was discussed                                                           | at least 5 (tracked manually)                                                |
+| 90 days  | Engineers or teams who reuse the patterns or give feedback (issues, forks, discussions)                                         | at least 5 (tracked manually)                                                |
 | 180 days | Phase 2 shipped (orchestrated workflow variant, see Rollout) with score comparison against the single-agent loop                | 1 comparison report                                                          |
 | 180 days | Hosted demo availability                                                                                                        | at least 99% monthly                                                         |
 
@@ -118,25 +118,25 @@ flowchart LR
 
 Stories are atomic: one action, one outcome. IDs are referenced by eval cases where applicable.
 
-### Hiring evaluator
-
-| ID    | Story                                                                                                                                                 | Type       |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| US-01 | As a hiring evaluator, I want to read a one-screen summary at the top of the README so that I understand what was built in under 2 minutes.           | Happy path |
-| US-02 | As a hiring evaluator, I want to see the latest eval scorecard in the README so that I have evidence the system was measured.                         | Happy path |
-| US-03 | As a hiring evaluator, I want to add the hosted server as a custom connector in Claude so that I can try it myself.                                   | Happy path |
-| US-04 | As a hiring evaluator, I want to view a recorded example transcript so that I can evaluate the project when the hosted demo is unreachable.           | Edge case  |
-| US-05 | As a hiring evaluator, I want sample questions listed next to the connector instructions so that I know what to ask without understanding the domain. | Edge case  |
-
-### Technical interviewer
+### Adoption lead
 
 | ID    | Story                                                                                                                                               | Type       |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| US-06 | As a technical interviewer, I want to run all deterministic tests with one command so that I can confirm the code works without an API key.         | Happy path |
-| US-07 | As a technical interviewer, I want to read each eval case alongside its answer key so that I can judge how rigorous the grading is.                 | Happy path |
-| US-08 | As a technical interviewer, I want to see pass rates per scorer per model so that I can discuss cost and quality trade-offs.                        | Happy path |
-| US-09 | As a technical interviewer, I want the eval command to fail with a clear message when no API key is set so that I don't waste time debugging setup. | Edge case  |
-| US-10 | As a technical interviewer, I want to open the full trace of a failing eval case so that I can see which tool call went wrong.                      | Edge case  |
+| US-01 | As an adoption lead, I want to read a one-screen summary at the top of the README so that I understand what was built in under 2 minutes.           | Happy path |
+| US-02 | As an adoption lead, I want to see the latest eval scorecard in the README so that I have evidence the system was measured.                         | Happy path |
+| US-03 | As an adoption lead, I want to add the hosted server as a custom connector in Claude so that I can try it myself.                                   | Happy path |
+| US-04 | As an adoption lead, I want to view a recorded example transcript so that I can evaluate the project when the hosted demo is unreachable.           | Edge case  |
+| US-05 | As an adoption lead, I want sample questions listed next to the connector instructions so that I know what to ask without understanding the domain. | Edge case  |
+
+### Implementing engineer
+
+| ID    | Story                                                                                                                                                | Type       |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| US-06 | As an implementing engineer, I want to run all deterministic tests with one command so that I can confirm the code works without an API key.         | Happy path |
+| US-07 | As an implementing engineer, I want to read each eval case alongside its answer key so that I can judge how rigorous the grading is.                 | Happy path |
+| US-08 | As an implementing engineer, I want to see pass rates per scorer per model so that I can discuss cost and quality trade-offs.                        | Happy path |
+| US-09 | As an implementing engineer, I want the eval command to fail with a clear message when no API key is set so that I don't waste time debugging setup. | Edge case  |
+| US-10 | As an implementing engineer, I want to open the full trace of a failing eval case so that I can see which tool call went wrong.                      | Edge case  |
 
 ### On-call engineer (in-world; each maps to an eval scenario)
 
@@ -322,7 +322,7 @@ flowchart TB
     GHA --> HOST
 ```
 
-A standalone SVG of this diagram (`triage-mcp-architecture.svg`) accompanies this document.
+A standalone SVG of this diagram (`docs/architecture.svg`) accompanies this document.
 
 ### Components
 
@@ -340,7 +340,7 @@ A standalone SVG of this diagram (`triage-mcp-architecture.svg`) accompanies thi
 ### Key flows
 
 1. **Local dev:** Claude Code or Inspector launches the server over stdio with `SCENARIO=checkout-latency`.
-2. **Recruiter demo:** recruiter adds the hosted URL as a custom connector in claude.ai and asks a sample question; each request is self-contained (stateless spec), so no session store is needed.
+2. **Hosted demo:** a first-time user adds the hosted URL as a custom connector in claude.ai and asks a sample question; each request is self-contained (stateless spec), so no session store is needed.
 3. **Eval run:** runner iterates cases, starts an in-process server per scenario, runs the agent loop 3 times per case, scores each trace, writes the scorecard.
 
 ### Third-party dependencies
@@ -406,12 +406,12 @@ All data is synthetic. Timestamps are stored as offsets from the scenario clock 
 | #    | Question                                 | Options and consequences                                                                                                                                                                                                                                                                                                                                            | Recommended default                                                                                                                    |
 | ---- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | OQ-1 | Which eval runner?                       | **Evalite**: TypeScript-native, built on Vitest, local UI, HTML export for CI; currently a beta release line, so APIs may shift. **promptfoo**: mature, widely recognized, YAML-first, built-in CI and MCP support; less TypeScript you write yourself, so less signal of skill. **Hand-rolled on Vitest**: zero dependencies, most control, more code to maintain. | **Evalite**, because scorers written in TypeScript show more skill and it shares the Vitest toolchain. Revisit if the beta blocks you. |
-| OQ-2 | Which hosting shape?                     | **Hono on Vercel Functions**: small, framework-light. **Next.js + `mcp-handler` v2 on Vercel**: Vercel's documented path, serves both spec eras, adds Next.js weight. **Cloudflare Workers**: fast cold starts, different runtime constraints.                                                                                                                      | **Hono on Vercel**, matching existing portfolio hosting. Fall back to `mcp-handler` if Hono middleware gaps appear.                    |
-| OQ-3 | Should the hosted endpoint require auth? | **None + rate limit**: zero friction for recruiters; abuse limited to burning free-tier quota. **OAuth (2026-07-28 auth profile)**: demonstrates auth chops; adds setup friction for every evaluator.                                                                                                                                                               | **None + rate limit** in MVP; add OAuth as a P2 showcase.                                                                              |
-| OQ-4 | Target MCP SDK v2 or v1?                 | **v2**: implements the current stateless spec and is the forward-looking line; newer, fewer tutorials. **v1**: more examples online; targets the superseded session-based model, which reads as dated to informed interviewers.                                                                                                                                     | **v2**.                                                                                                                                |
-| OQ-5 | How does a remote user switch scenarios? | **Fixed default scenario**: simplest; recruiters always see S1. **Scenario argument on every tool**: flexible but pollutes tool schemas and confuses the model. **Separate URL path per scenario** (`/mcp/auth-cert-expiry`): clean, no schema change.                                                                                                              | **Separate URL path per scenario**, with `/mcp` pointing at S1.                                                                        |
+| OQ-2 | Which hosting shape?                     | **Hono on Vercel Functions**: small, framework-light. **Next.js + `mcp-handler` v2 on Vercel**: Vercel's documented path, serves both spec eras, adds Next.js weight. **Cloudflare Workers**: fast cold starts, different runtime constraints.                                                                                                                      | **Hono on Vercel**, matching existing hosting setup. Fall back to `mcp-handler` if Hono middleware gaps appear.                        |
+| OQ-3 | Should the hosted endpoint require auth? | **None + rate limit**: zero friction for first-time users; abuse limited to burning free-tier quota. **OAuth (2026-07-28 auth profile)**: demonstrates the spec's auth profile; adds setup friction for every first-time user.                                                                                                                                      | **None + rate limit** in MVP; add OAuth as a P2 enhancement.                                                                           |
+| OQ-4 | Target MCP SDK v2 or v1?                 | **v2**: implements the current stateless spec and is the forward-looking line; newer, fewer tutorials. **v1**: more examples online; targets the superseded session-based model, which reads as dated to teams tracking the spec.                                                                                                                                   | **v2**.                                                                                                                                |
+| OQ-5 | How does a remote user switch scenarios? | **Fixed default scenario**: simplest; every user always sees S1. **Scenario argument on every tool**: flexible but pollutes tool schemas and confuses the model. **Separate URL path per scenario** (`/mcp/auth-cert-expiry`): clean, no schema change.                                                                                                             | **Separate URL path per scenario**, with `/mcp` pointing at S1.                                                                        |
 | OQ-6 | Which judge model?                       | **Same model as agent**: cheaper, risks self-preference bias. **Stronger model**: better judgments, higher cost.                                                                                                                                                                                                                                                    | **Claude Sonnet 5.5 as judge** for all agent models, pinned by model ID and recorded in every report.                                  |
-| OQ-7 | Include the write tool at all?           | **Include**: enables the guardrail eval, a strong interview talking point. **Exclude**: simpler, purely read-only.                                                                                                                                                                                                                                                  | **Include**, in-memory only.                                                                                                           |
+| OQ-7 | Include the write tool at all?           | **Include**: enables the guardrail eval and shows how write actions stay behind explicit user intent. **Exclude**: simpler, purely read-only.                                                                                                                                                                                                                       | **Include**, in-memory only.                                                                                                           |
 | OQ-8 | When do evals run in CI?                 | **Every PR**: maximum signal, higher cost and noise. **Path-filtered PRs + nightly**: cheaper, still gates relevant changes.                                                                                                                                                                                                                                        | **Path-filtered PRs + nightly + manual**.                                                                                              |
 
 ---
@@ -471,7 +471,7 @@ All tools return text content plus structured content. Errors use the MCP tool-e
 
 **Short answer: not for the MVP, yes as a deliberate Phase 2.**
 
-**Why not now.** The MCP server is the thing being demonstrated, and the agent loop that drives it is about 50 lines with the Claude API. Adding Mastra in the MVP would hide the loop you want interviewers to see you understand, add a large dependency, and slow the 4-week build. Interviewers for FDE and agent roles tend to probe "what happens inside the loop," so owning it first is the stronger story.
+**Why not now.** The MCP server is the thing being demonstrated, and the agent loop that drives it is about 50 lines with the Claude API. Adding Mastra in the MVP would hide the loop readers most need to see, add a large dependency, and slow the 4-week build. Engineers adopting agents tend to probe "what happens inside the loop," so exposing it first makes the stronger reference.
 
 **Why it fits Phase 2.** Mastra is a TypeScript framework with agents, graph workflows, memory, human-in-the-loop, evals, and tracing, and it can consume any MCP server as a tool source. That makes a clean experiment:
 
@@ -479,7 +479,7 @@ All tools return text content plus structured content. Errors use the MCP tool-e
 2. Point it at the **unchanged** TriageMCP server. This proves the server is client-agnostic, which is the whole point of MCP.
 3. Run the **same eval cases** against both the single-agent loop and the Mastra workflow, and publish pass rate, guardrail violations, cost, and latency side by side.
 
-That comparison ("orchestration improved guardrail compliance by X but cost Y more per run") is a far stronger interview artifact than either version alone. If you'd rather stay closer to Anthropic's stack, the Claude Agent SDK is the equivalent alternative for the same experiment.
+That comparison ("orchestration improved guardrail compliance by X but cost Y more per run") gives adopting teams far stronger evidence than either version alone. If you'd rather stay closer to Anthropic's stack, the Claude Agent SDK is the equivalent alternative for the same experiment.
 
 ---
 
@@ -588,8 +588,8 @@ These act on your coding sessions, not the product. Use them in layers:
 | Tool                          | Layer                                                                | Recommendation                                                                                                                                                                                                                                              |
 | ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **RTK (Rust Token Killer)**   | Shell command output going into Claude Code (git, test runs, builds) | **Adopt.** Install and run `rtk init` for Claude Code; it rewrites commands through a hook so verbose test and build output is compacted. Watch out for the unrelated `rtk` (Rust Type Kit) crate when installing via Cargo. Check savings with `rtk gain`. |
-| **Caveman**                   | Claude's own prose output                                            | **Adopt selectively.** Useful for long coding sessions; turn it off when Claude writes the README, EVALS.md, DECISIONS.md, or PR descriptions, since those are recruiter-facing.                                                                            |
-| **Product-level compression** | What TriageMCP returns to models                                     | Already in the requirements: concise-by-default `response_format`, capped lists, truncated logs. Measure it (FR-15). This is the one recruiters will ask about.                                                                                             |
+| **Caveman**                   | Claude's own prose output                                            | **Adopt selectively.** Useful for long coding sessions; turn it off when Claude writes the README, EVALS.md, DECISIONS.md, or PR descriptions, since those are reader-facing.                                                                               |
+| **Product-level compression** | What TriageMCP returns to models                                     | Already in the requirements: concise-by-default `response_format`, capped lists, truncated logs. Measure it (FR-15). This is the one adopters will ask about.                                                                                               |
 
 ### 8. Validations
 
