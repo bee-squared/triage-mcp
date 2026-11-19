@@ -2,12 +2,25 @@
 
 Notable choices and departures from the PRD, newest first.
 
-## 2026-10-29: Override better-sqlite3 to ^13.0.3
+## 2026-11-19: Pin Evalite to 1.0.0-beta.16 and Vitest to 4.1
 
-**Context:** evalite 0.19.0 (latest) depends on `better-sqlite3@^11.6.0`. Version 11.x has no prebuilt binaries for Node 26, and its C++ source does not compile against Node 26's V8 (`GetPrototype`, `GetIsolate` and `This` were removed). `pnpm i` fails, which blocks `pnpm eval`.
+**Context:** Evalite has no Vitest dependency of its own. It loads the repo's Vitest but imports `@vitest/runner` 4 directly, so Vitest 5 in the repo meant two incompatible runners. Evalite 0.19.0 also needed `better-sqlite3@^11.6.0`, which doesn't build on Node 26 and was forced to 13.x through a pnpm override.
 
-**Decision:** Force `better-sqlite3@^13.0.3` (supports Node >=22) through `overrides` in `pnpm-workspace.yaml`. Verified that it loads from evalite's resolution path and runs queries.
+**Decision:**
 
-**Risk:** evalite is not tested against better-sqlite3 13. If evals fail with SQLite errors, look here first.
+- Pin `evalite` to exactly `1.0.0-beta.16` (the line the PRD's docs link points to). `better-sqlite3` is an optional peer there, and storage defaults to in-memory.
+- Pin `vitest` and `@vitest/coverage-v8` to `^4.1.12`, which matches the PRD's Vitest 4.1 and supports Node 26.
+- Remove the `better-sqlite3` override and its `allowBuilds` entry. This replaces the 2026-10-29 entry, which is no longer needed.
+- Dependabot ignores Vitest major updates and all Evalite updates, so a routine bump can't bring the mismatch back.
 
-**Revisit when:** evalite ships a release that depends on better-sqlite3 >=12 with Node 26 support. Then remove the override.
+**Verified on Node 26.13.0:** a stub `.eval.ts` with `trialCount: 3` and no API call ran under `evalite run`. `--outputPath` wrote JSON, `evalite export` wrote the static UI, and `runEvalite` from `evalite/runner` ran with `scoreThreshold: 0`.
+
+**Risk:** this is a beta, last released in February 2026. In-memory storage means the UI keeps no run history unless SQLite storage is added.
+
+**Revisit when:** Evalite 1.0 ships stable or declares Vitest as a dependency. If Evalite breaks, the fallback is a thin runner of our own around the same scorers.
+
+## 2026-11-19: Keep pnpm 12
+
+**Context:** The PRD specifies pnpm 11. The repo already uses pnpm 12.16.1 through `packageManager` and `devEngines`.
+
+**Decision:** Keep pnpm 12. Nothing in the plan depends on pnpm 11 behaviour.

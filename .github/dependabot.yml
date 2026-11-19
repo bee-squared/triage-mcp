@@ -11,6 +11,14 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Evalite 1.0.0-beta.16 uses @vitest/runner 4 but loads the repo's Vitest,
+    # so both must stay on the same major. See DECISIONS.md (2026-11-19).
+    ignore:
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "evalite"
     groups:
       packages:
         patterns: ["*"]
