@@ -1,0 +1,32 @@
+[
+	{
+		"team_id": "web",
+		"primary_handle": "web-primary",
+		"secondary_handle": "web-secondary"
+	},
+	{
+		"team_id": "payments",
+		"primary_handle": "payments-primary",
+		"secondary_handle": "payments-secondary"
+	},
+	{
+		"team_id": "identity",
+		"primary_handle": "identity-primary",
+		"secondary_handle": "identity-secondary"
+	},
+	{
+		"team_id": "scheduling",
+		"primary_handle": "scheduling-primary",
+		"secondary_handle": "scheduling-secondary"
+	},
+	{
+		"team_id": "messaging",
+		"primary_handle": "messaging-primary",
+		"secondary_handle": "messaging-secondary"
+	},
+	{
+		"team_id": "platform",
+		"primary_handle": "platform-primary",
+		"secondary_handle": "platform-secondary"
+	}
+]

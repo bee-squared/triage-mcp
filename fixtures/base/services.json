@@ -1,0 +1,92 @@
+[
+	{
+		"id": "web-app",
+		"name": "Web App",
+		"team_id": "web",
+		"tier": 1,
+		"description": "Customer-facing web front end for booking appointments, checking out, and searching providers.",
+		"slo_availability_pct": 99.9,
+		"slo_p95_ms": 800
+	},
+	{
+		"id": "checkout-api",
+		"name": "Checkout API",
+		"team_id": "payments",
+		"tier": 1,
+		"description": "Builds carts, applies pricing, and orchestrates payment for bookings that require a deposit.",
+		"slo_availability_pct": 99.95,
+		"slo_p95_ms": 600
+	},
+	{
+		"id": "payment-gateway",
+		"name": "Payment Gateway",
+		"team_id": "payments",
+		"tier": 1,
+		"description": "Authorizes and captures card payments through the card processor and records payment intents.",
+		"slo_availability_pct": 99.95,
+		"slo_p95_ms": 400
+	},
+	{
+		"id": "billing",
+		"name": "Billing",
+		"team_id": "payments",
+		"tier": 2,
+		"description": "Manages subscription plans for business customers and generates monthly invoices.",
+		"slo_availability_pct": 99.9,
+		"slo_p95_ms": 800
+	},
+	{
+		"id": "auth",
+		"name": "Auth",
+		"team_id": "identity",
+		"tier": 1,
+		"description": "Issues and validates session tokens and terminates mutual TLS for internal service callers.",
+		"slo_availability_pct": 99.99,
+		"slo_p95_ms": 150
+	},
+	{
+		"id": "scheduling-api",
+		"name": "Scheduling API",
+		"team_id": "scheduling",
+		"tier": 1,
+		"description": "Owns availability, bookings, and rescheduling rules for every provider calendar.",
+		"slo_availability_pct": 99.9,
+		"slo_p95_ms": 500
+	},
+	{
+		"id": "calendar-sync",
+		"name": "Calendar Sync",
+		"team_id": "scheduling",
+		"tier": 2,
+		"description": "Background workers that sync bookings with providers' external calendar accounts.",
+		"slo_availability_pct": 99.5,
+		"slo_p95_ms": 2000
+	},
+	{
+		"id": "notifications",
+		"name": "Notifications",
+		"team_id": "messaging",
+		"tier": 2,
+		"description": "Sends booking confirmations, reminders, and receipts by email and SMS from a queue.",
+		"slo_availability_pct": 99.5,
+		"slo_p95_ms": 1000
+	},
+	{
+		"id": "search-index",
+		"name": "Search Index",
+		"team_id": "platform",
+		"tier": 2,
+		"description": "Full-text index behind provider and service search in the web app, rebuilt from the core database.",
+		"slo_availability_pct": 99.5,
+		"slo_p95_ms": 300
+	},
+	{
+		"id": "core-db",
+		"name": "Core Database",
+		"team_id": "platform",
+		"tier": 1,
+		"description": "Primary relational database cluster holding accounts, bookings, and payment records.",
+		"slo_availability_pct": 99.99,
+		"slo_p95_ms": 50
+	}
+]

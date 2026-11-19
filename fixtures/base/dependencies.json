@@ -1,0 +1,92 @@
+[
+	{
+		"from_service_id": "web-app",
+		"to_service_id": "auth",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "web-app",
+		"to_service_id": "checkout-api",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "web-app",
+		"to_service_id": "scheduling-api",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "web-app",
+		"to_service_id": "search-index",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "checkout-api",
+		"to_service_id": "auth",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "checkout-api",
+		"to_service_id": "payment-gateway",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "checkout-api",
+		"to_service_id": "billing",
+		"kind": "async"
+	},
+	{
+		"from_service_id": "checkout-api",
+		"to_service_id": "core-db",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "payment-gateway",
+		"to_service_id": "core-db",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "billing",
+		"to_service_id": "core-db",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "billing",
+		"to_service_id": "notifications",
+		"kind": "async"
+	},
+	{
+		"from_service_id": "auth",
+		"to_service_id": "core-db",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "scheduling-api",
+		"to_service_id": "auth",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "scheduling-api",
+		"to_service_id": "core-db",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "scheduling-api",
+		"to_service_id": "calendar-sync",
+		"kind": "async"
+	},
+	{
+		"from_service_id": "scheduling-api",
+		"to_service_id": "notifications",
+		"kind": "async"
+	},
+	{
+		"from_service_id": "calendar-sync",
+		"to_service_id": "core-db",
+		"kind": "sync"
+	},
+	{
+		"from_service_id": "search-index",
+		"to_service_id": "core-db",
+		"kind": "async"
+	}
+]
