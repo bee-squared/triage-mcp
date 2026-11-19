@@ -62,10 +62,35 @@ export const OnCallShiftSchema = z
 		path: ["secondary_handle"],
 	});
 
+/** Stable runbook ID (`RB-07`). Eval answer keys reference these. */
+export const RunbookIdSchema = z
+	.string()
+	.regex(/^RB-\d{2}$/, "must be a runbook ID like `RB-07`");
+
+const step = z.string().min(1).max(300);
+
+export const RunbookSchema = z.strictObject({
+	id: RunbookIdSchema,
+	title: z.string().min(1).max(80),
+	/** Observable symptoms, phrased the way an alert or a user would describe them. */
+	symptoms: z.array(z.string().min(1).max(160)).min(1),
+	applies_to_service_ids: z.array(ServiceIdSchema).min(1),
+	diagnostic_steps: z.array(step).min(1),
+	remediation_steps: z.array(step).min(1),
+	/** Empty when there is no change to undo (for example, an expired certificate). */
+	rollback_steps: z.array(step),
+	escalation: z.strictObject({
+		team_id: TeamIdSchema,
+		/** When to page the team instead of continuing the runbook. */
+		when: z.string().min(1).max(200),
+	}),
+});
+
 export const ServicesFileSchema = z.array(ServiceSchema).min(1);
 export const DependenciesFileSchema = z.array(DependencySchema);
 export const TeamsFileSchema = z.array(TeamSchema).min(1);
 export const OnCallFileSchema = z.array(OnCallShiftSchema);
+export const RunbooksFileSchema = z.array(RunbookSchema).min(1);
 
 /** The 6 MVP scenarios (PRD FR-35). Data sets arrive with PR 3b. */
 export const SCENARIO_IDS = [
@@ -84,4 +109,5 @@ export type Dependency = z.infer<typeof DependencySchema>;
 export type DependencyKind = (typeof DEPENDENCY_KINDS)[number];
 export type Team = z.infer<typeof TeamSchema>;
 export type OnCallShift = z.infer<typeof OnCallShiftSchema>;
+export type Runbook = z.infer<typeof RunbookSchema>;
 export type ScenarioId = z.infer<typeof ScenarioIdSchema>;

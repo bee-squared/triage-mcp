@@ -1,0 +1,324 @@
+[
+	{
+		"id": "RB-01",
+		"title": "Core database connection pool exhaustion",
+		"symptoms": [
+			"Many services time out at once on database calls",
+			"\"too many connections\" or pool checkout timeout errors",
+			"core-db active connections at the configured maximum"
+		],
+		"applies_to_service_ids": ["core-db"],
+		"diagnostic_steps": [
+			"Compare core-db active connections with the pool maximum on the database dashboard.",
+			"List the top clients by open connections to find the service holding the most.",
+			"Check whether that service deployed or scaled out in the last 30 minutes.",
+			"Look for long-running transactions that hold connections open."
+		],
+		"remediation_steps": [
+			"Cancel queries running longer than 60 seconds from the offending client.",
+			"Scale the offending service back to its previous replica count if it scaled out.",
+			"If one service is leaking connections, restart its pods one at a time."
+		],
+		"rollback_steps": [
+			"If a deploy introduced the leak, roll that service back with `fernctl rollback <service> --to previous`."
+		],
+		"escalation": {
+			"team_id": "platform",
+			"when": "Connections stay at the maximum for 10 minutes after remediation, or write errors appear."
+		}
+	},
+	{
+		"id": "RB-02",
+		"title": "Core database replication lag",
+		"symptoms": [
+			"Reads return stale data shortly after a write",
+			"Bookings or payments missing for a few seconds, then appearing",
+			"core-db replica lag above 5 seconds"
+		],
+		"applies_to_service_ids": ["core-db"],
+		"diagnostic_steps": [
+			"Check replica lag per replica on the database dashboard.",
+			"Look for a bulk write, backfill, or migration running on the primary.",
+			"Check replica disk and CPU saturation."
+		],
+		"remediation_steps": [
+			"Pause any backfill or migration job writing to the primary.",
+			"Route read traffic for checkout and scheduling to the primary until lag recovers.",
+			"Remove a replica that is not catching up from the read pool."
+		],
+		"rollback_steps": [
+			"If a schema migration caused the lag, run its down migration once lag is under 1 second."
+		],
+		"escalation": {
+			"team_id": "platform",
+			"when": "Lag exceeds 60 seconds or keeps growing after write jobs are paused."
+		}
+	},
+	{
+		"id": "RB-03",
+		"title": "Auth TLS certificate expiry",
+		"symptoms": [
+			"Sudden spike in 401 Unauthorized responses from auth",
+			"Internal callers report TLS handshake or certificate verification failures",
+			"Errors start at a round time with no auth deploy"
+		],
+		"applies_to_service_ids": ["auth"],
+		"diagnostic_steps": [
+			"Confirm there was no auth deploy in the window. A spike without a deploy points away from a code change.",
+			"Check the expiry date of the auth mutual TLS certificate with `fernctl certs show auth`.",
+			"Check auth logs for `certificate has expired` or `bad certificate` errors from internal callers.",
+			"Confirm the 401 spike started at the certificate's expiry time."
+		],
+		"remediation_steps": [
+			"Issue a new certificate with `fernctl certs renew auth`.",
+			"Roll auth pods so they load the new certificate.",
+			"Watch the 401 rate return to baseline within 5 minutes.",
+			"Open a follow-up to fix the automatic renewal job."
+		],
+		"rollback_steps": [],
+		"escalation": {
+			"team_id": "identity",
+			"when": "Renewal fails, or 401s stay elevated 10 minutes after the new certificate is loaded."
+		}
+	},
+	{
+		"id": "RB-04",
+		"title": "Auth session signing key rotation failure",
+		"symptoms": [
+			"Users are logged out and must sign in again",
+			"Token validation errors mentioning an unknown key ID",
+			"Errors begin right after a scheduled key rotation"
+		],
+		"applies_to_service_ids": ["auth"],
+		"diagnostic_steps": [
+			"Check whether a signing key rotation ran in the last hour.",
+			"Confirm every auth instance publishes the same key set.",
+			"Check auth logs for `unknown kid` validation errors."
+		],
+		"remediation_steps": [
+			"Re-publish the previous key alongside the new one so old tokens validate.",
+			"Restart auth instances that serve a stale key set."
+		],
+		"rollback_steps": [
+			"Revert to the previous signing key with `fernctl keys rollback auth`."
+		],
+		"escalation": {
+			"team_id": "identity",
+			"when": "Sign-in itself fails, or validation errors persist after the key set is consistent."
+		}
+	},
+	{
+		"id": "RB-05",
+		"title": "Checkout API elevated error rate",
+		"symptoms": [
+			"checkout-api 5xx rate above 1%",
+			"Customers see \"something went wrong\" at checkout",
+			"Errors without a matching rise in latency"
+		],
+		"applies_to_service_ids": ["checkout-api"],
+		"diagnostic_steps": [
+			"Group checkout-api errors by endpoint and error type.",
+			"Check whether checkout-api deployed in the last 30 minutes.",
+			"Check the health of auth and core-db, which checkout-api calls synchronously."
+		],
+		"remediation_steps": [
+			"If one endpoint fails, disable it with its feature flag.",
+			"If a dependency is failing, follow that dependency's runbook."
+		],
+		"rollback_steps": [
+			"If a checkout-api deploy caused the errors, run `fernctl rollback checkout-api --to previous`."
+		],
+		"escalation": {
+			"team_id": "payments",
+			"when": "The error rate stays above 1% for 15 minutes, or checkout fails completely."
+		}
+	},
+	{
+		"id": "RB-06",
+		"title": "Card processor outage",
+		"symptoms": [
+			"payment-gateway timeouts or errors on calls to the card processor",
+			"Payment authorizations fail across all card types",
+			"No recent payment-gateway deploy"
+		],
+		"applies_to_service_ids": ["payment-gateway"],
+		"diagnostic_steps": [
+			"Check the card processor status page linked from the payments dashboard.",
+			"Confirm failures are on outbound processor calls, not on core-db.",
+			"Confirm there was no payment-gateway deploy in the window."
+		],
+		"remediation_steps": [
+			"Enable payment retry queueing so bookings are held, not lost.",
+			"Post a customer status update that payments are delayed.",
+			"Open a ticket with the card processor's support line."
+		],
+		"rollback_steps": [],
+		"escalation": {
+			"team_id": "payments",
+			"when": "The processor outage lasts more than 15 minutes, or queued payments exceed 1,000."
+		}
+	},
+	{
+		"id": "RB-07",
+		"title": "Payment gateway latency regression after deploy",
+		"symptoms": [
+			"checkout-api p95 latency well above its SLO",
+			"payment-gateway p95 latency rising shortly after a deploy",
+			"Slow or timing-out checkouts while other services are healthy"
+		],
+		"applies_to_service_ids": ["payment-gateway", "checkout-api"],
+		"diagnostic_steps": [
+			"Check payment-gateway p95 against its 400 ms SLO and compare with checkout-api.",
+			"List payment-gateway deploys in the last 60 minutes and note the version.",
+			"Confirm the latency rise started within a few minutes of that deploy.",
+			"Check core-db health to rule out the database as the shared cause."
+		],
+		"remediation_steps": [
+			"Roll back payment-gateway to the previous version (see rollback steps).",
+			"Watch checkout-api p95 return under its 600 ms SLO.",
+			"Block the bad version from redeploying until a fix is reviewed."
+		],
+		"rollback_steps": [
+			"Run `fernctl rollback payment-gateway --to previous`.",
+			"Confirm the previous version is serving on every instance.",
+			"Post in #payments-escalation that payment-gateway was rolled back and why."
+		],
+		"escalation": {
+			"team_id": "payments",
+			"when": "Page the Payments on-call before rolling back, or immediately if latency persists after rollback."
+		}
+	},
+	{
+		"id": "RB-08",
+		"title": "Notifications queue backlog",
+		"symptoms": [
+			"Booking confirmations or reminders arrive late",
+			"Notifications queue depth growing for 10 minutes or more",
+			"Email or SMS provider rate-limit errors"
+		],
+		"applies_to_service_ids": ["notifications"],
+		"diagnostic_steps": [
+			"Check queue depth and the oldest message age.",
+			"Check worker error logs for provider rate-limit or authentication errors.",
+			"Check whether notifications deployed recently."
+		],
+		"remediation_steps": [
+			"Scale notification workers up if they are healthy but behind.",
+			"If the provider rate-limits, lower the send rate and let the queue drain.",
+			"Pause non-urgent reminder sends until the backlog clears."
+		],
+		"rollback_steps": [
+			"If a notifications deploy broke sending, run `fernctl rollback notifications --to previous`."
+		],
+		"escalation": {
+			"team_id": "messaging",
+			"when": "The oldest message is older than 30 minutes, or nothing is sending."
+		}
+	},
+	{
+		"id": "RB-09",
+		"title": "Calendar sync stalled",
+		"symptoms": [
+			"New bookings do not appear in providers' external calendars",
+			"calendar-sync job lag growing",
+			"Double bookings reported by providers"
+		],
+		"applies_to_service_ids": ["calendar-sync", "scheduling-api"],
+		"diagnostic_steps": [
+			"Check calendar-sync job lag and failed job count.",
+			"Group failures by external calendar provider to spot a provider outage.",
+			"Check scheduling-api for errors publishing booking events."
+		],
+		"remediation_steps": [
+			"Retry failed sync jobs once the cause is fixed.",
+			"If one provider is down, pause its sync and let others continue.",
+			"Turn on the double-booking guard in scheduling-api until sync catches up."
+		],
+		"rollback_steps": [
+			"If a calendar-sync deploy caused the stall, run `fernctl rollback calendar-sync --to previous`."
+		],
+		"escalation": {
+			"team_id": "scheduling",
+			"when": "Sync lag exceeds 1 hour, or double bookings are confirmed."
+		}
+	},
+	{
+		"id": "RB-10",
+		"title": "Search index degraded or stale",
+		"symptoms": [
+			"Provider search is slow, returns errors, or misses new providers",
+			"search-index p95 latency above its SLO",
+			"Index rebuild lag growing"
+		],
+		"applies_to_service_ids": ["search-index"],
+		"diagnostic_steps": [
+			"Check search-index p95 latency and error rate.",
+			"Check the rebuild job lag from core-db.",
+			"Confirm that only web-app search depends on search-index. Checkout and scheduling do not."
+		],
+		"remediation_steps": [
+			"Serve search from the last good index snapshot.",
+			"Restart the rebuild job if it is stuck.",
+			"Post a status update that search may be incomplete while booking and checkout work normally."
+		],
+		"rollback_steps": [
+			"If a search-index deploy caused it, run `fernctl rollback search-index --to previous`."
+		],
+		"escalation": {
+			"team_id": "platform",
+			"when": "Search is fully unavailable for more than 30 minutes."
+		}
+	},
+	{
+		"id": "RB-11",
+		"title": "Web app errors after front-end release",
+		"symptoms": [
+			"Spike in browser errors or blank pages after a web-app release",
+			"web-app availability below its SLO while backend APIs are healthy",
+			"Errors limited to one browser or one page"
+		],
+		"applies_to_service_ids": ["web-app"],
+		"diagnostic_steps": [
+			"Compare the error spike's start time with the latest web-app release.",
+			"Check backend API health to confirm the problem is in the front end.",
+			"Group browser errors by page and browser."
+		],
+		"remediation_steps": [
+			"Turn off the feature flag for the new page or component if there is one."
+		],
+		"rollback_steps": [
+			"Run `fernctl rollback web-app --to previous`.",
+			"Purge the CDN cache for the front-end bundle."
+		],
+		"escalation": {
+			"team_id": "web",
+			"when": "Customers cannot book or check out after the rollback."
+		}
+	},
+	{
+		"id": "RB-12",
+		"title": "Billing invoice generation failure",
+		"symptoms": [
+			"Monthly invoices not generated or stuck in pending",
+			"Invoice job failures in billing logs",
+			"Business customers report missing invoices"
+		],
+		"applies_to_service_ids": ["billing"],
+		"diagnostic_steps": [
+			"Check the invoice job run history and failure reasons.",
+			"Check core-db health, since invoice runs read heavily from it.",
+			"Check whether billing deployed since the last successful run."
+		],
+		"remediation_steps": [
+			"Re-run the invoice job for failed accounts only.",
+			"Hold invoice emails until totals are verified."
+		],
+		"rollback_steps": [
+			"If a billing deploy broke invoicing, run `fernctl rollback billing --to previous`, then re-run the job."
+		],
+		"escalation": {
+			"team_id": "payments",
+			"when": "Invoices are still missing 4 hours after the scheduled run."
+		}
+	}
+]
