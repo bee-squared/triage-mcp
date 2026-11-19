@@ -1,7 +1,7 @@
 {
 	"plansDirectory": "./plans",
 	"sandbox": {
-		"enabled": false,
+		"enabled": true,
 		"failIfUnavailable": true,
 		"allowUnsandboxedCommands": false,
 		"autoAllowBashIfSandboxed": false
