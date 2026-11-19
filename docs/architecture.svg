@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" width="1100" height="720" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 770" width="1160" height="770" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
   <title>TriageMCP architecture diagram</title>
+  <desc>Each MCP client sends a request to a TriageMCP entry point and gets the result back on the same channel. Claude Desktop, Claude Code, MCP Inspector and the Triage CLI agent use the stdio entry point. The claude.ai connector calls the HTTP entry point at /mcp, which runs inside a Vercel Function. Both entry points share one server: registration, domain query layer, fixture data. Real systems such as metrics and deploy APIs would sit behind the domain layer; fixtures stand in for them. The eval harness runs the same agent loop as the CLI, and CI smoke-tests the deployed endpoint.</desc>
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
@@ -10,119 +11,156 @@
     <style>
       .t { font-size: 14px; font-weight: 600; fill: #0f172a; }
       .s { font-size: 11.5px; fill: #475569; }
+      .m { font-size: 11px; fill: #475569; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .mb { font-size: 11px; fill: #b45309; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
       .g { font-size: 13px; font-weight: 700; fill: #334155; letter-spacing: .04em; }
       .h { font-size: 22px; font-weight: 700; fill: #0f172a; }
       .sub { font-size: 13px; fill: #475569; }
+      .req { stroke: #475569; stroke-width: 1.6; fill: none; }
+      .res { stroke: #475569; stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
       .ln { stroke: #475569; stroke-width: 1.6; fill: none; }
-      .api { stroke: #b45309; stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
+      .api { stroke: #b45309; stroke-width: 1.6; fill: none; }
+      .ghost { stroke: #64748b; stroke-width: 1.4; fill: none; stroke-dasharray: 2 4; }
     </style>
   </defs>
 
-  <rect width="1100" height="720" fill="#ffffff"/>
+  <rect width="1160" height="770" fill="#ffffff"/>
   <text x="30" y="40" class="h">TriageMCP architecture</text>
   <text x="30" y="60" class="sub">MCP spec 2026-07-28 (stateless) · TypeScript · static fixture data · evals gate every change</text>
 
   <!-- Clients group -->
-  <rect x="20" y="72" width="250" height="374" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
-  <text x="34" y="92" class="g">MCP CLIENTS</text>
+  <rect x="20" y="100" width="250" height="406" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="34" y="120" class="g">MCP CLIENTS</text>
 
-  <rect x="30" y="100" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
-  <text x="45" y="126" class="t">Claude Desktop / Claude Code</text>
-  <text x="45" y="146" class="s">local dev and dogfooding · stdio</text>
+  <rect x="30" y="156" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="45" y="182" class="t">claude.ai custom connector</text>
+  <text x="45" y="202" class="s">Anthropic cloud · Streamable HTTP</text>
 
-  <rect x="30" y="190" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
-  <text x="45" y="216" class="t">MCP Inspector</text>
-  <text x="45" y="236" class="s">debugging + CI smoke test · stdio</text>
+  <rect x="30" y="250" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="45" y="276" class="t">Claude Desktop / Claude Code</text>
+  <text x="45" y="296" class="s">model runs in the host · stdio</text>
 
-  <rect x="30" y="280" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
-  <text x="45" y="306" class="t">claude.ai custom connector</text>
-  <text x="45" y="326" class="s">hosted demo · Streamable HTTP</text>
+  <rect x="30" y="340" width="230" height="64" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="45" y="366" class="t">MCP Inspector</text>
+  <text x="45" y="386" class="s">debugging + CI · stdio or HTTP</text>
 
-  <rect x="30" y="370" width="230" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
-  <text x="45" y="396" class="t">Triage CLI agent</text>
-  <text x="45" y="416" class="s">Claude API loop + MCP client</text>
+  <rect x="30" y="430" width="230" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="45" y="456" class="t">Triage CLI agent</text>
+  <text x="45" y="476" class="s">Claude API loop + MCP client</text>
 
-  <!-- Vercel -->
-  <rect x="300" y="280" width="170" height="64" rx="8" fill="#f8fafc" stroke="#64748b"/>
-  <text x="314" y="306" class="t">Vercel (Hobby)</text>
-  <text x="314" y="326" class="s">serverless /mcp, /health</text>
+  <!-- Request / result pairs: caller starts, result returns on the same channel -->
+  <path class="req" d="M262,181 L514,181" marker-end="url(#arr)"/>
+  <path class="res" d="M514,195 L262,195" marker-end="url(#arr)"/>
+  <text x="390" y="174" class="m" text-anchor="middle">POST /mcp</text>
+  <text x="390" y="212" class="m" text-anchor="middle">HTTP response</text>
+
+  <path class="req" d="M262,275 L514,275" marker-end="url(#arr)"/>
+  <path class="res" d="M514,289 L262,289" marker-end="url(#arr)"/>
+  <text x="390" y="268" class="m" text-anchor="middle">request via stdin</text>
+  <text x="390" y="306" class="m" text-anchor="middle">result via stdout</text>
+
+  <path class="req" d="M262,365 L514,365" marker-end="url(#arr)"/>
+  <path class="res" d="M514,379 L262,379" marker-end="url(#arr)"/>
+
+  <path class="req" d="M262,455 L514,455" marker-end="url(#arr)"/>
+  <path class="res" d="M514,469 L262,469" marker-end="url(#arr)"/>
 
   <!-- Server group -->
-  <rect x="520" y="70" width="320" height="375" rx="12" fill="#ecfdf5" stroke="#059669"/>
-  <text x="536" y="92" class="g">TRIAGEMCP SERVER</text>
+  <rect x="500" y="100" width="380" height="410" rx="12" fill="#ecfdf5" stroke="#059669"/>
+  <text x="866" y="122" class="g" text-anchor="end">TRIAGEMCP SERVER</text>
 
-  <rect x="550" y="110" width="260" height="60" rx="8" fill="#ffffff" stroke="#059669"/>
-  <text x="565" y="134" class="t">Transport adapters</text>
-  <text x="565" y="154" class="s">stdio | HTTP · Host/Origin check</text>
+  <!-- Vercel boundary around the HTTP entry point -->
+  <rect x="508" y="134" width="168" height="96" rx="10" fill="none" stroke="#334155" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="518" y="149" class="m">Vercel Function (Hobby)</text>
+  <rect x="516" y="158" width="150" height="60" rx="8" fill="#ffffff" stroke="#059669"/>
+  <text x="530" y="182" class="t">HTTP entry · /mcp</text>
+  <text x="530" y="202" class="s">Host/Origin · rate limit</text>
 
-  <rect x="550" y="195" width="260" height="60" rx="8" fill="#ffffff" stroke="#059669"/>
-  <text x="565" y="219" class="t">MCP registration</text>
-  <text x="565" y="239" class="s">8 tools · 2 resources · 1 prompt</text>
+  <rect x="516" y="250" width="150" height="244" rx="8" fill="#ffffff" stroke="#059669"/>
+  <text x="530" y="276" class="t">stdio entry</text>
+  <text x="530" y="296" class="s">client starts it as a</text>
+  <text x="530" y="312" class="s">child process; JSON-RPC</text>
+  <text x="530" y="328" class="s">on stdin and stdout</text>
 
-  <rect x="550" y="280" width="260" height="60" rx="8" fill="#ffffff" stroke="#059669"/>
-  <text x="565" y="304" class="t">Domain query layer</text>
-  <text x="565" y="324" class="s">pure functions: graph walk, search</text>
+  <rect x="690" y="158" width="170" height="72" rx="8" fill="#ffffff" stroke="#059669"/>
+  <text x="704" y="182" class="t">MCP registration</text>
+  <text x="704" y="200" class="s">8 tools · 2 resources</text>
+  <text x="704" y="216" class="s">1 prompt</text>
 
-  <rect x="550" y="365" width="260" height="60" rx="8" fill="#d1fae5" stroke="#059669"/>
-  <text x="565" y="389" class="t">Fixture data (JSON)</text>
-  <text x="565" y="409" class="s">base + scenarios · Zod-validated</text>
+  <rect x="690" y="276" width="170" height="64" rx="8" fill="#ffffff" stroke="#059669"/>
+  <text x="704" y="302" class="t">Domain query layer</text>
+  <text x="704" y="322" class="s">pure functions: graph, search</text>
 
-  <path class="ln" d="M680,170 L680,193" marker-end="url(#arr)"/>
-  <path class="ln" d="M680,255 L680,278" marker-end="url(#arr)"/>
-  <path class="ln" d="M680,340 L680,363" marker-end="url(#arr)"/>
+  <rect x="690" y="386" width="170" height="64" rx="8" fill="#d1fae5" stroke="#059669"/>
+  <text x="704" y="412" class="t">Fixture data (JSON)</text>
+  <text x="704" y="432" class="s">base + scenarios · Zod</text>
 
-  <!-- Client -> transport arrows -->
-  <path class="ln" d="M260,125 L548,125" marker-end="url(#arr)"/>
-  <path class="ln" d="M260,222 L490,222 L490,140 L548,140" marker-end="url(#arr)"/>
-  <path class="ln" d="M260,312 L298,312" marker-end="url(#arr)"/>
-  <path class="ln" d="M470,312 L510,312 L510,152 L548,152" marker-end="url(#arr)"/>
-  <path class="ln" d="M260,402 L530,402 L530,165 L548,165" marker-end="url(#arr)"/>
+  <path class="ln" d="M668,188 L688,188" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <path class="ln" d="M668,282 L678,282 L678,212 L688,212" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <path class="ln" d="M775,232 L775,274" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <path class="ln" d="M775,342 L775,384" marker-start="url(#arr)" marker-end="url(#arr)"/>
 
-  <!-- Claude API -->
-  <rect x="870" y="470" width="200" height="60" rx="8" fill="#fef3c7" stroke="#b45309"/>
-  <text x="885" y="494" class="t">Claude API</text>
-  <text x="885" y="514" class="s">agent model + judge model</text>
-
-  <path class="api" d="M180,434 L180,500 L868,500" marker-end="url(#arrB)"/>
-  <text x="560" y="492" class="s">agent loop calls</text>
-
-  <!-- Eval row -->
-  <rect x="20" y="590" width="930" height="100" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
-  <text x="34" y="608" class="g">EVAL HARNESS + CI</text>
-
-  <rect x="40" y="615" width="170" height="64" rx="8" fill="#ffffff" stroke="#64748b"/>
-  <text x="54" y="641" class="t">GitHub Actions</text>
-  <text x="54" y="661" class="s">PRs, nightly · deploys</text>
-
-  <rect x="250" y="615" width="200" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
-  <text x="264" y="641" class="t">Eval runner</text>
-  <text x="264" y="661" class="s">cases + answer keys · 3 trials</text>
-
-  <rect x="490" y="615" width="200" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
-  <text x="504" y="641" class="t">Scorers</text>
-  <text x="504" y="661" class="s">deterministic + LLM judge</text>
-
-  <rect x="730" y="615" width="200" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
-  <text x="744" y="641" class="t">Scorecard</text>
-  <text x="744" y="661" class="s">HTML report · PR comment · badge</text>
-
-  <path class="ln" d="M210,647 L248,647" marker-end="url(#arr)"/>
-  <path class="ln" d="M450,647 L488,647" marker-end="url(#arr)"/>
-  <path class="ln" d="M690,647 L728,647" marker-end="url(#arr)"/>
-
-  <!-- runner drives the same CLI agent loop -->
-  <path class="ln" d="M300,615 L300,550 L100,550 L100,436" marker-end="url(#arr)"/>
-  <text x="108" y="566" class="s">runs same agent loop</text>
-
-  <!-- judge -->
-  <path class="api" d="M590,615 L590,570 L960,570 L960,532" marker-end="url(#arrB)"/>
-  <text x="780" y="563" class="s">judge calls</text>
+  <!-- Behind the server: not built -->
+  <path class="ghost" d="M862,308 L908,308" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <rect x="910" y="262" width="230" height="92" rx="10" fill="#ffffff" stroke="#64748b" stroke-width="1.4" stroke-dasharray="2 4"/>
+  <text x="924" y="286" class="t">Real systems (not in MVP)</text>
+  <text x="924" y="306" class="s">metrics, deploys, pager: often REST</text>
+  <text x="924" y="324" class="s">MCP wraps them; fixtures stand in</text>
+  <text x="924" y="340" class="s">so every scenario has one answer</text>
 
   <!-- Legend -->
-  <rect x="870" y="100" width="200" height="96" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
-  <text x="884" y="122" class="g">KEY</text>
-  <path class="ln" d="M884,144 L924,144" marker-end="url(#arr)"/>
-  <text x="932" y="148" class="s">MCP / internal flow</text>
-  <path class="api" d="M884,172 L924,172" marker-end="url(#arrB)"/>
-  <text x="932" y="176" class="s">Claude API call</text>
+  <rect x="910" y="100" width="230" height="136" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="924" y="122" class="g">KEY</text>
+  <path class="req" d="M924,146 L964,146" marker-end="url(#arr)"/>
+  <text x="972" y="150" class="s">request (caller starts it)</text>
+  <path class="res" d="M964,170 L924,170" marker-end="url(#arr)"/>
+  <text x="972" y="174" class="s">result, same channel</text>
+  <path class="api" d="M924,194 L964,194" marker-start="url(#arrB)" marker-end="url(#arrB)"/>
+  <text x="972" y="198" class="s">Claude API call + reply</text>
+  <path class="ghost" d="M924,218 L964,218"/>
+  <text x="972" y="222" class="s">not built</text>
+
+  <!-- Claude API -->
+  <rect x="910" y="520" width="230" height="60" rx="8" fill="#fef3c7" stroke="#b45309"/>
+  <text x="924" y="544" class="t">Claude API</text>
+  <text x="924" y="564" class="s">agent model + judge model</text>
+
+  <path class="api" d="M150,497 L150,550 L907,550" marker-start="url(#arrB)" marker-end="url(#arrB)"/>
+  <text x="540" y="542" class="mb" text-anchor="middle">agent loop: messages + tools ⇄ tool_use + answer</text>
+
+  <!-- Eval row -->
+  <rect x="20" y="630" width="930" height="110" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="34" y="650" class="g">EVAL HARNESS + CI</text>
+
+  <rect x="40" y="660" width="170" height="64" rx="8" fill="#ffffff" stroke="#64748b"/>
+  <text x="54" y="686" class="t">GitHub Actions</text>
+  <text x="54" y="706" class="s">PRs, nightly · smoke test</text>
+
+  <rect x="250" y="660" width="200" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="264" y="686" class="t">Eval runner</text>
+  <text x="264" y="706" class="s">cases + answer keys · 3 trials</text>
+
+  <rect x="490" y="660" width="200" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="504" y="686" class="t">Scorers</text>
+  <text x="504" y="706" class="s">deterministic + LLM judge</text>
+
+  <rect x="730" y="660" width="200" height="64" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="744" y="686" class="t">Scorecard</text>
+  <text x="744" y="706" class="s">HTML report · PR comment · badge</text>
+
+  <path class="ln" d="M210,692 L248,692" marker-end="url(#arr)"/>
+  <path class="ln" d="M450,692 L488,692" marker-end="url(#arr)"/>
+  <path class="ln" d="M690,692 L728,692" marker-end="url(#arr)"/>
+
+  <!-- runner drives the same CLI agent loop -->
+  <path class="ln" d="M300,660 L300,600 L100,600 L100,498" marker-end="url(#arr)"/>
+  <text x="108" y="618" class="s">runs same agent loop</text>
+
+  <!-- judge calls, two-way -->
+  <path class="api" d="M590,658 L590,610 L1025,610 L1025,582" marker-start="url(#arrB)" marker-end="url(#arrB)"/>
+  <text x="800" y="603" class="mb">judge calls</text>
+
+  <!-- post-deploy smoke test against the hosted endpoint -->
+  <path class="ln" d="M40,692 L12,692 L12,84 L560,84 L560,132" marker-end="url(#arr)"/>
+  <text x="290" y="78" class="m" text-anchor="middle">smoke test /health + /mcp after each deploy</text>
 </svg>

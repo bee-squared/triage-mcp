@@ -283,8 +283,8 @@ Priority: **P0** = MVP must-have, **P1** = MVP if time allows, **P2** = post-MVP
 ```mermaid
 flowchart TB
     subgraph Clients["MCP clients (ways to call it)"]
-        CD["Claude Desktop / Claude Code<br/>stdio"]
-        CAI["claude.ai custom connector<br/>Streamable HTTP"]
+        CD["Claude Desktop / Claude Code<br/>model runs in the host · stdio"]
+        CAI["claude.ai custom connector<br/>Anthropic cloud · Streamable HTTP"]
         INS["MCP Inspector<br/>stdio or HTTP"]
         CLI["Triage CLI agent<br/>Claude API + MCP client"]
     end
@@ -297,30 +297,41 @@ flowchart TB
     end
 
     subgraph Server["TriageMCP server"]
-        TR["Transport adapters<br/>stdio | Streamable HTTP"]
+        subgraph HOST["Vercel (Hobby) function"]
+            HTTP["HTTP entry /mcp<br/>Host/Origin check, rate limit"]
+        end
+        STDIO["stdio entry<br/>started by the client"]
         REG["MCP registration<br/>8 tools, 2 resources, 1 prompt"]
         DOM["Domain query layer<br/>pure functions"]
         FIX[("Fixture data<br/>JSON + schema validation<br/>base + scenarios")]
     end
 
+    REAL["Real systems (not in MVP)<br/>metrics, deploys, pager APIs"]
     ANTH["Claude API<br/>(agent model + judge model)"]
     GHA["GitHub Actions CI"]
-    HOST["Vercel (Hobby)<br/>serverless function /mcp"]
 
-    CD --> TR
-    INS --> TR
-    CAI --> HOST --> TR
-    CLI --> TR
+    CAI <-->|"POST /mcp, response"| HTTP
+    CD <-->|"request, result"| STDIO
+    INS <--> STDIO
+    CLI <--> STDIO
     CLI <--> ANTH
-    TR --> REG --> DOM --> FIX
+    HTTP <--> REG
+    STDIO <--> REG
+    REG <--> DOM <--> FIX
+    DOM -.- REAL
 
     EVC --> RUN --> CLI
     RUN --> SCO
     SCO <--> ANTH
     SCO --> REP
     GHA --> RUN
-    GHA --> HOST
+    GHA -->|"smoke test after deploy"| HTTP
+
+    classDef ghost stroke-dasharray: 4 4
+    class REAL ghost
 ```
+
+Every edge between a client and the server is a request with its result returned on the same channel (stdout for stdio, the HTTP response for `/mcp`). The HTTP entry point runs inside the Vercel function rather than behind it, and real systems would sit behind the domain layer, where the fixtures stand in for them.
 
 A standalone SVG of this diagram (`docs/architecture.svg`) accompanies this document.
 
