@@ -34,6 +34,7 @@
 		"check": "biome check --write .",
 		"lint": "biome ci .",
 		"typecheck": "tsc --noEmit",
+		"build": "tsc -p tsconfig.build.json",
 		"test": "vitest run --passWithNoTests",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
@@ -50,11 +51,11 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.5",
 		"@types/node": "^26.6.6",
-		"@vitest/coverage-v8": "^5.1.0",
-		"evalite": "^0.19.0",
+		"@vitest/coverage-v8": "^4.1.12",
+		"evalite": "1.0.0-beta.16",
 		"lefthook": "^2.2.2",
 		"tsx": "^4.23.15",
 		"typescript": "^7.0.2",
-		"vitest": "^5.1.0"
+		"vitest": "^4.1.12"
 	}
 }
