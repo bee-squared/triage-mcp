@@ -29,5 +29,4 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      # Enable once src/ exists (PR 2); tsc fails with no inputs before then.
-      # - run: pnpm build
+      - run: pnpm build
