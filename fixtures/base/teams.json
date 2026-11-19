@@ -1,0 +1,32 @@
+[
+	{
+		"id": "web",
+		"name": "Web",
+		"escalation_channel": "#web-escalation"
+	},
+	{
+		"id": "payments",
+		"name": "Payments",
+		"escalation_channel": "#payments-escalation"
+	},
+	{
+		"id": "identity",
+		"name": "Identity",
+		"escalation_channel": "#identity-escalation"
+	},
+	{
+		"id": "scheduling",
+		"name": "Scheduling",
+		"escalation_channel": "#scheduling-escalation"
+	},
+	{
+		"id": "messaging",
+		"name": "Messaging",
+		"escalation_channel": "#messaging-escalation"
+	},
+	{
+		"id": "platform",
+		"name": "Platform",
+		"escalation_channel": "#platform-escalation"
+	}
+]
