@@ -23,9 +23,11 @@ jobs:
           persist-credentials: false
       - uses: pnpm/setup@v3
         with:
-          runtime: node@24
+          runtime: node@26
           cache: true
+      - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm exec tsc --noEmit
+      - run: pnpm typecheck
       - run: pnpm test
+      # Enable once src/ exists (PR 2); tsc fails with no inputs before then.
       # - run: pnpm build
