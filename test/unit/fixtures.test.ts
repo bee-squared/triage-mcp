@@ -3,6 +3,7 @@ import dependencies from "../../fixtures/base/dependencies.json" with {
 	type: "json",
 };
 import oncall from "../../fixtures/base/oncall.json" with { type: "json" };
+import runbooks from "../../fixtures/base/runbooks.json" with { type: "json" };
 import services from "../../fixtures/base/services.json" with { type: "json" };
 import teams from "../../fixtures/base/teams.json" with { type: "json" };
 import {
@@ -16,11 +17,12 @@ import {
 type Rec = Record<string, unknown>;
 
 const raw = () =>
-	structuredClone({ services, dependencies, teams, oncall }) as {
+	structuredClone({ services, dependencies, teams, oncall, runbooks }) as {
 		services: Rec[];
 		dependencies: Rec[];
 		teams: Rec[];
 		oncall: Rec[];
+		runbooks: Rec[];
 	};
 
 function at(records: Rec[], index: number): Rec {
@@ -80,6 +82,53 @@ describe("base catalog", () => {
 
 	it("is memoized", () => {
 		expect(loadCatalog()).toBe(catalog);
+	});
+});
+
+describe("base runbooks", () => {
+	const catalog = loadCatalog();
+	const runbook = (id: string) => {
+		const found = catalog.runbooks.find((r) => r.id === id);
+		if (!found) throw new Error(`no runbook ${id}`);
+		return found;
+	};
+
+	it("has at least 12 runbooks covering every service (FR-6)", () => {
+		expect(catalog.runbooks.length).toBeGreaterThanOrEqual(12);
+		const covered = new Set(
+			catalog.runbooks.flatMap((r) => r.applies_to_service_ids),
+		);
+		for (const service of catalog.services) {
+			expect(covered).toContain(service.id);
+		}
+	});
+
+	it("escalates each runbook to a team that owns one of its services", () => {
+		const owner = new Map(catalog.services.map((s) => [s.id, s.team_id]));
+		for (const r of catalog.runbooks) {
+			const owners = r.applies_to_service_ids.map((id) => owner.get(id));
+			expect(owners, r.id).toContain(r.escalation.team_id);
+		}
+	});
+
+	it("has RB-07 for the S1 payment-gateway deploy regression, with rollback", () => {
+		const rb07 = runbook("RB-07");
+		expect(rb07.applies_to_service_ids).toContain("payment-gateway");
+		expect(rb07.escalation.team_id).toBe("payments");
+		expect(rb07.rollback_steps.join(" ")).toMatch(/rollback payment-gateway/);
+	});
+
+	it("has RB-03 for the S2 auth certificate expiry, which no notifications runbook competes with", () => {
+		const rb03 = runbook("RB-03");
+		expect(rb03.applies_to_service_ids).toEqual(["auth"]);
+		expect(rb03.symptoms.join(" ")).toMatch(/401/);
+		expect(rb03.title).toMatch(/certificate/i);
+		const authRunbooks = catalog.runbooks.filter((r) =>
+			r.applies_to_service_ids.includes("auth"),
+		);
+		for (const r of authRunbooks) {
+			expect(r.applies_to_service_ids).not.toContain("notifications");
+		}
 	});
 });
 
@@ -146,6 +195,44 @@ describe("buildCatalog validation (FR-2)", () => {
 			expect.stringMatching(
 				/dependencies\.json: \[\d+\]: duplicate edge web-app->auth/,
 			),
+		);
+	});
+
+	it("rejects malformed runbooks", () => {
+		const data = raw();
+		at(data.runbooks, 0).id = "RB-7";
+		at(data.runbooks, 1).diagnostic_steps = [];
+		const issues = issuesFor(data);
+		expect(issues).toContain(
+			"fixtures/base/runbooks.json: [0].id: must be a runbook ID like `RB-07`",
+		);
+		expect(issues).toContainEqual(
+			expect.stringMatching(
+				/^fixtures\/base\/runbooks\.json: \[1\]\.diagnostic_steps: /,
+			),
+		);
+	});
+
+	it("rejects broken runbook references and duplicates", () => {
+		const data = raw();
+		const first = at(data.runbooks, 0);
+		first.applies_to_service_ids = ["core-db", "billing-v2", "core-db"];
+		first.escalation = { team_id: "nobody", when: "always" };
+		data.runbooks.push({
+			...at(data.runbooks, 1),
+			title: String(first.title).toUpperCase(),
+		});
+		const issues = issuesFor(data);
+		expect(issues).toEqual(
+			expect.arrayContaining([
+				'fixtures/base/runbooks.json: [0].applies_to_service_ids[1]: unknown service "billing-v2"',
+				'fixtures/base/runbooks.json: [0].applies_to_service_ids[2]: service "core-db" is listed twice',
+				'fixtures/base/runbooks.json: [0].escalation.team_id: unknown team "nobody"',
+				'fixtures/base/runbooks.json: [12].id: duplicate value "RB-02" (first used at [1])',
+			]),
+		);
+		expect(issues).toContainEqual(
+			expect.stringMatching(/runbooks\.json: \[12\]\.title: duplicate value/),
 		);
 	});
 

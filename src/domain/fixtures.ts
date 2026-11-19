@@ -3,6 +3,9 @@ import dependenciesJson from "../../fixtures/base/dependencies.json" with {
 	type: "json",
 };
 import oncallJson from "../../fixtures/base/oncall.json" with { type: "json" };
+import runbooksJson from "../../fixtures/base/runbooks.json" with {
+	type: "json",
+};
 import servicesJson from "../../fixtures/base/services.json" with {
 	type: "json",
 };
@@ -12,6 +15,8 @@ import {
 	type Dependency,
 	OnCallFileSchema,
 	type OnCallShift,
+	type Runbook,
+	RunbooksFileSchema,
 	type Service,
 	ServicesFileSchema,
 	type Team,
@@ -27,6 +32,7 @@ export const FIXTURE_FILES = {
 	dependencies: "fixtures/base/dependencies.json",
 	teams: "fixtures/base/teams.json",
 	oncall: "fixtures/base/oncall.json",
+	runbooks: "fixtures/base/runbooks.json",
 } as const;
 
 type FixtureName = keyof typeof FIXTURE_FILES;
@@ -36,6 +42,7 @@ export interface Catalog {
 	readonly dependencies: readonly Dependency[];
 	readonly teams: readonly Team[];
 	readonly oncall: readonly OnCallShift[];
+	readonly runbooks: readonly Runbook[];
 }
 
 export type RawCatalog = Record<FixtureName, unknown>;
@@ -112,7 +119,7 @@ function checkUnique<T>(
 }
 
 function checkReferences(catalog: Catalog, issues: FixtureIssue[]): void {
-	const { services, dependencies, teams, oncall } = catalog;
+	const { services, dependencies, teams, oncall, runbooks } = catalog;
 	const serviceIds = new Set(services.map((s) => s.id));
 	const teamIds = new Set(teams.map((t) => t.id));
 
@@ -170,6 +177,37 @@ function checkReferences(catalog: Catalog, issues: FixtureIssue[]): void {
 		}
 	});
 
+	checkUnique("runbooks", runbooks, "id", issues);
+	checkUnique("runbooks", runbooks, "title", issues, (v) => v.toLowerCase());
+
+	runbooks.forEach((runbook, i) => {
+		const seenServices = new Set<string>();
+		runbook.applies_to_service_ids.forEach((id, j) => {
+			const path = `[${i}].applies_to_service_ids[${j}]`;
+			if (!serviceIds.has(id)) {
+				issues.push({
+					file: FIXTURE_FILES.runbooks,
+					path,
+					message: `unknown service "${id}"`,
+				});
+			} else if (seenServices.has(id)) {
+				issues.push({
+					file: FIXTURE_FILES.runbooks,
+					path,
+					message: `service "${id}" is listed twice`,
+				});
+			}
+			seenServices.add(id);
+		});
+		if (!teamIds.has(runbook.escalation.team_id)) {
+			issues.push({
+				file: FIXTURE_FILES.runbooks,
+				path: `[${i}].escalation.team_id`,
+				message: `unknown team "${runbook.escalation.team_id}"`,
+			});
+		}
+	});
+
 	// FR-6: the roster covers every team (and so every owning team).
 	const covered = new Set(oncall.map((s) => s.team_id));
 	teams.forEach((team, i) => {
@@ -203,13 +241,19 @@ export function buildCatalog(raw: RawCatalog): Catalog {
 	);
 	const teams = parseFile("teams", TeamsFileSchema, raw.teams, issues);
 	const oncall = parseFile("oncall", OnCallFileSchema, raw.oncall, issues);
+	const runbooks = parseFile(
+		"runbooks",
+		RunbooksFileSchema,
+		raw.runbooks,
+		issues,
+	);
 
 	// Shape errors make reference checks noisy, so report those first.
-	if (!services || !dependencies || !teams || !oncall) {
+	if (!services || !dependencies || !teams || !oncall || !runbooks) {
 		throw new FixtureError(issues);
 	}
 
-	const catalog: Catalog = { services, dependencies, teams, oncall };
+	const catalog: Catalog = { services, dependencies, teams, oncall, runbooks };
 	checkReferences(catalog, issues);
 	if (issues.length > 0) throw new FixtureError(issues);
 	return catalog;
@@ -224,6 +268,7 @@ export function loadCatalog(): Catalog {
 		dependencies: dependenciesJson,
 		teams: teamsJson,
 		oncall: oncallJson,
+		runbooks: runbooksJson,
 	});
 	return cached;
 }
