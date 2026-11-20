@@ -77,8 +77,9 @@ export function formatPath(path: readonly PropertyKey[]): string {
 		.join("");
 }
 
-function parseFile<T>(
-	name: FixtureName,
+/** Parses one fixture file, recording each schema error against `file`. */
+export function parseFixture<T>(
+	file: string,
 	schema: z.ZodType<T>,
 	data: unknown,
 	issues: FixtureIssue[],
@@ -87,12 +88,21 @@ function parseFile<T>(
 	if (result.success) return result.data;
 	for (const issue of result.error.issues) {
 		issues.push({
-			file: FIXTURE_FILES[name],
+			file,
 			path: formatPath(issue.path),
 			message: issue.message,
 		});
 	}
 	return undefined;
+}
+
+function parseFile<T>(
+	name: FixtureName,
+	schema: z.ZodType<T>,
+	data: unknown,
+	issues: FixtureIssue[],
+): T | undefined {
+	return parseFixture(FIXTURE_FILES[name], schema, data, issues);
 }
 
 function checkUnique<T>(

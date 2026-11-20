@@ -1,0 +1,82 @@
+[
+	{
+		"service_id": "web-app",
+		"status": "healthy",
+		"p95_ms": 420,
+		"error_rate_pct": 0.04,
+		"throughput_rpm": 5200,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "checkout-api",
+		"status": "healthy",
+		"p95_ms": 310,
+		"error_rate_pct": 0.02,
+		"throughput_rpm": 900,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "payment-gateway",
+		"status": "healthy",
+		"p95_ms": 180,
+		"error_rate_pct": 0.02,
+		"throughput_rpm": 620,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "billing",
+		"status": "healthy",
+		"p95_ms": 350,
+		"error_rate_pct": 0.03,
+		"throughput_rpm": 140,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "auth",
+		"status": "healthy",
+		"p95_ms": 45,
+		"error_rate_pct": 0.004,
+		"throughput_rpm": 7400,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "scheduling-api",
+		"status": "healthy",
+		"p95_ms": 210,
+		"error_rate_pct": 0.03,
+		"throughput_rpm": 2100,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "calendar-sync",
+		"status": "healthy",
+		"p95_ms": 900,
+		"error_rate_pct": 0.1,
+		"throughput_rpm": 300,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "notifications",
+		"status": "healthy",
+		"p95_ms": 400,
+		"error_rate_pct": 0.1,
+		"throughput_rpm": 1100,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "search-index",
+		"status": "healthy",
+		"p95_ms": 120,
+		"error_rate_pct": 0.05,
+		"throughput_rpm": 1800,
+		"log_excerpts": []
+	},
+	{
+		"service_id": "core-db",
+		"status": "healthy",
+		"p95_ms": 12,
+		"error_rate_pct": 0.002,
+		"throughput_rpm": 24000,
+		"log_excerpts": []
+	}
+]

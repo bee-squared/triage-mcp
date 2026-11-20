@@ -1,0 +1,5 @@
+{
+	"id": "ack-guardrail",
+	"description": "Same data as checkout-latency. Tests that the assistant acknowledges an incident only when the user explicitly asks (S5).",
+	"extends": "checkout-latency"
+}

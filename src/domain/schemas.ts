@@ -92,7 +92,7 @@ export const TeamsFileSchema = z.array(TeamSchema).min(1);
 export const OnCallFileSchema = z.array(OnCallShiftSchema);
 export const RunbooksFileSchema = z.array(RunbookSchema).min(1);
 
-/** The 6 MVP scenarios (PRD FR-35). Data sets arrive with PR 3b. */
+/** The 6 MVP scenarios (PRD FR-35). Data sets live in `fixtures/scenarios/`. */
 export const SCENARIO_IDS = [
 	"checkout-latency",
 	"auth-cert-expiry",
@@ -104,6 +104,82 @@ export const SCENARIO_IDS = [
 export const ScenarioIdSchema = z.enum(SCENARIO_IDS);
 export const DEFAULT_SCENARIO = "checkout-latency" satisfies ScenarioId;
 
+export const SIGNAL_STATUSES = ["healthy", "degraded", "down"] as const;
+
+const logExcerpt = z.string().min(1).max(199, "must be under 200 characters");
+
+/** Signal fields every service has in every scenario (PRD section 9). */
+const signalFields = {
+	status: z.enum(SIGNAL_STATUSES),
+	p95_ms: z.int().nonnegative(),
+	error_rate_pct: z.number().min(0).max(100),
+	throughput_rpm: z.int().nonnegative(),
+	log_excerpts: z.array(logExcerpt).max(5),
+};
+
+/** One service's healthy baseline in `fixtures/base/signals.json`. */
+export const BaselineSignalSchema = z.strictObject({
+	service_id: ServiceIdSchema,
+	...signalFields,
+});
+
+/** Fields a scenario changes for one service; the rest come from the baseline. */
+export const SignalOverrideSchema = z
+	.strictObject({
+		service_id: ServiceIdSchema,
+		...z.object(signalFields).partial().shape,
+	})
+	.refine(
+		(override) =>
+			Object.values(override).filter((v) => v !== undefined).length > 1,
+		{
+			message: "must override at least one field besides service_id",
+		},
+	);
+
+/** Stable deploy ID (`DEP-1001`), unique across all data sets. */
+export const DeployIdSchema = z
+	.string()
+	.regex(/^DEP-\d{4}$/, "must be a deploy ID like `DEP-1001`");
+
+/** A deploy as stored in a scenario file; the resolver adds `scenario_id`. */
+export const DeployRecordSchema = z.strictObject({
+	id: DeployIdSchema,
+	service_id: ServiceIdSchema,
+	team_id: TeamIdSchema,
+	version: z
+		.string()
+		.regex(/^v\d+\.\d+\.\d+$/, "must be a version like `v3.8.1`"),
+	/** Offset from the scenario clock. The deploy tool's window maxes out at 1440. */
+	minutes_before_start: z.int().min(0).max(1440),
+	change_summary: z.string().min(1).max(200),
+});
+
+/**
+ * A scenario file. A data set lists overrides and deploys; a scenario that
+ * reuses another's data (S5 reuses S1) names it in `extends` instead.
+ */
+export const ScenarioFileSchema = z
+	.strictObject({
+		id: ScenarioIdSchema,
+		description: z.string().min(1).max(300),
+		extends: ScenarioIdSchema.optional(),
+		signal_overrides: z.array(SignalOverrideSchema).optional(),
+		deploys: z.array(DeployRecordSchema).optional(),
+	})
+	.refine(
+		(file) =>
+			file.extends === undefined
+				? file.signal_overrides !== undefined && file.deploys !== undefined
+				: file.signal_overrides === undefined && file.deploys === undefined,
+		{
+			message:
+				"must have either `extends` or both `signal_overrides` and `deploys`, not a mix",
+		},
+	);
+
+export const BaselineSignalsFileSchema = z.array(BaselineSignalSchema).min(1);
+
 export type Service = z.infer<typeof ServiceSchema>;
 export type Dependency = z.infer<typeof DependencySchema>;
 export type DependencyKind = (typeof DEPENDENCY_KINDS)[number];
@@ -111,3 +187,28 @@ export type Team = z.infer<typeof TeamSchema>;
 export type OnCallShift = z.infer<typeof OnCallShiftSchema>;
 export type Runbook = z.infer<typeof RunbookSchema>;
 export type ScenarioId = z.infer<typeof ScenarioIdSchema>;
+export type SignalStatus = (typeof SIGNAL_STATUSES)[number];
+export type BaselineSignal = z.infer<typeof BaselineSignalSchema>;
+export type SignalOverride = z.infer<typeof SignalOverrideSchema>;
+export type DeployRecord = z.infer<typeof DeployRecordSchema>;
+export type ScenarioFile = z.infer<typeof ScenarioFileSchema>;
+
+/** PRD SignalSnapshot: one per service per scenario, after the overlay. */
+export interface SignalSnapshot extends BaselineSignal {
+	readonly scenario_id: ScenarioId;
+}
+
+/** PRD Deploy, with the scenario it was resolved for. */
+export interface Deploy extends DeployRecord {
+	readonly scenario_id: ScenarioId;
+}
+
+/** A resolved scenario: a full signal set plus its deploys. */
+export interface Scenario {
+	readonly id: ScenarioId;
+	readonly description: string;
+	/** One snapshot per catalog service, in catalog order. */
+	readonly signals: readonly SignalSnapshot[];
+	/** Newest first. */
+	readonly deploys: readonly Deploy[];
+}
