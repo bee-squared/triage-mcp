@@ -172,6 +172,22 @@ describe("scenario data sets (FR-35)", () => {
 		]);
 	});
 
+	it("S1: repeats INC-0142, the past incident the answer must cite", () => {
+		const inc0142 = catalog.incidents.find((i) => i.id === "INC-0142");
+		const deploy = loadScenario("checkout-latency").deploys.find(
+			(d) => d.id === "DEP-1001",
+		);
+		expect(inc0142?.root_cause_service_id).toBe(deploy?.service_id);
+		expect(inc0142?.runbook_id).toBe("RB-07");
+		// Same change as INC-0142: a synchronous fraud-score check on authorization.
+		expect(deploy?.change_summary).toMatch(/fraud-score/);
+		expect(inc0142?.root_cause_summary).toMatch(/fraud-score/);
+		// The card processor is fine, which rules out the INC-0141 look-alike.
+		expect(
+			signal("checkout-latency", "payment-gateway").log_excerpts.join(" "),
+		).toMatch(/Card processor responding normally/);
+	});
+
 	it("S2: auth 401 spike, no auth deploy, and a notifications deploy as a red herring", () => {
 		const auth = signal("auth-cert-expiry", "auth");
 		expect(auth.status).not.toBe("healthy");

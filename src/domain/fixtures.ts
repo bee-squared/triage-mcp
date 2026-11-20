@@ -2,6 +2,9 @@ import type { z } from "zod";
 import dependenciesJson from "../../fixtures/base/dependencies.json" with {
 	type: "json",
 };
+import incidentsJson from "../../fixtures/base/incidents.json" with {
+	type: "json",
+};
 import oncallJson from "../../fixtures/base/oncall.json" with { type: "json" };
 import runbooksJson from "../../fixtures/base/runbooks.json" with {
 	type: "json",
@@ -13,6 +16,8 @@ import teamsJson from "../../fixtures/base/teams.json" with { type: "json" };
 import {
 	DependenciesFileSchema,
 	type Dependency,
+	type Incident,
+	IncidentsFileSchema,
 	OnCallFileSchema,
 	type OnCallShift,
 	type Runbook,
@@ -33,6 +38,7 @@ export const FIXTURE_FILES = {
 	teams: "fixtures/base/teams.json",
 	oncall: "fixtures/base/oncall.json",
 	runbooks: "fixtures/base/runbooks.json",
+	incidents: "fixtures/base/incidents.json",
 } as const;
 
 type FixtureName = keyof typeof FIXTURE_FILES;
@@ -43,6 +49,7 @@ export interface Catalog {
 	readonly teams: readonly Team[];
 	readonly oncall: readonly OnCallShift[];
 	readonly runbooks: readonly Runbook[];
+	readonly incidents: readonly Incident[];
 }
 
 export type RawCatalog = Record<FixtureName, unknown>;
@@ -128,8 +135,79 @@ function checkUnique<T>(
 	});
 }
 
+function checkIncidents(
+	catalog: Catalog,
+	incidents: readonly Incident[],
+	issues: FixtureIssue[],
+): void {
+	const serviceIds = new Set(catalog.services.map((s) => s.id));
+	const teamIds = new Set(catalog.teams.map((t) => t.id));
+	const runbooks = new Map(catalog.runbooks.map((r) => [r.id, r]));
+	const file = FIXTURE_FILES.incidents;
+
+	checkUnique("incidents", incidents, "id", issues);
+	checkUnique("incidents", incidents, "title", issues, (v) => v.toLowerCase());
+
+	incidents.forEach((incident, i) => {
+		const seen = new Set<string>();
+		incident.affected_service_ids.forEach((id, j) => {
+			const path = `[${i}].affected_service_ids[${j}]`;
+			if (!serviceIds.has(id)) {
+				issues.push({ file, path, message: `unknown service "${id}"` });
+			} else if (seen.has(id)) {
+				issues.push({ file, path, message: `service "${id}" is listed twice` });
+			}
+			seen.add(id);
+		});
+
+		const root = incident.root_cause_service_id;
+		if (!serviceIds.has(root)) {
+			issues.push({
+				file,
+				path: `[${i}].root_cause_service_id`,
+				message: `unknown service "${root}"`,
+			});
+		} else if (!seen.has(root)) {
+			issues.push({
+				file,
+				path: `[${i}].root_cause_service_id`,
+				message: `"${root}" must also be listed in affected_service_ids`,
+			});
+		}
+
+		const runbook = runbooks.get(incident.runbook_id);
+		if (!runbook) {
+			issues.push({
+				file,
+				path: `[${i}].runbook_id`,
+				message: `unknown runbook "${incident.runbook_id}"`,
+			});
+		} else if (
+			serviceIds.has(root) &&
+			!runbook.applies_to_service_ids.includes(root)
+		) {
+			issues.push({
+				file,
+				path: `[${i}].runbook_id`,
+				message: `${runbook.id} doesn't apply to the root-cause service "${root}"`,
+			});
+		}
+
+		incident.postmortem.action_items.forEach((item, j) => {
+			if (!teamIds.has(item.owner_team_id)) {
+				issues.push({
+					file,
+					path: `[${i}].postmortem.action_items[${j}].owner_team_id`,
+					message: `unknown team "${item.owner_team_id}"`,
+				});
+			}
+		});
+	});
+}
+
 function checkReferences(catalog: Catalog, issues: FixtureIssue[]): void {
-	const { services, dependencies, teams, oncall, runbooks } = catalog;
+	const { services, dependencies, teams, oncall, runbooks, incidents } =
+		catalog;
 	const serviceIds = new Set(services.map((s) => s.id));
 	const teamIds = new Set(teams.map((t) => t.id));
 
@@ -218,6 +296,8 @@ function checkReferences(catalog: Catalog, issues: FixtureIssue[]): void {
 		}
 	});
 
+	checkIncidents(catalog, incidents, issues);
+
 	// FR-6: the roster covers every team (and so every owning team).
 	const covered = new Set(oncall.map((s) => s.team_id));
 	teams.forEach((team, i) => {
@@ -258,12 +338,33 @@ export function buildCatalog(raw: RawCatalog): Catalog {
 		issues,
 	);
 
+	const incidents = parseFile(
+		"incidents",
+		IncidentsFileSchema,
+		raw.incidents,
+		issues,
+	);
+
 	// Shape errors make reference checks noisy, so report those first.
-	if (!services || !dependencies || !teams || !oncall || !runbooks) {
+	if (
+		!services ||
+		!dependencies ||
+		!teams ||
+		!oncall ||
+		!runbooks ||
+		!incidents
+	) {
 		throw new FixtureError(issues);
 	}
 
-	const catalog: Catalog = { services, dependencies, teams, oncall, runbooks };
+	const catalog: Catalog = {
+		services,
+		dependencies,
+		teams,
+		oncall,
+		runbooks,
+		incidents,
+	};
 	checkReferences(catalog, issues);
 	if (issues.length > 0) throw new FixtureError(issues);
 	return catalog;
@@ -279,6 +380,7 @@ export function loadCatalog(): Catalog {
 		teams: teamsJson,
 		oncall: oncallJson,
 		runbooks: runbooksJson,
+		incidents: incidentsJson,
 	});
 	return cached;
 }

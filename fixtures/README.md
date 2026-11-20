@@ -11,6 +11,7 @@ All data here is synthetic. **Fernhill** is a fictional B2B scheduling and payme
 | `base/teams.json` | Owning teams and their escalation channels |
 | `base/oncall.json` | One on-call shift (primary and secondary handle) per team |
 | `base/runbooks.json` | 12 runbooks (`RB-01` to `RB-12`) with symptoms, steps, and an escalation team |
+| `base/incidents.json` | 30 past incidents (`INC-0103` to `INC-0160`) with root cause, resolution, runbook and postmortem |
 | `base/signals.json` | Healthy baseline signal for every service (status, p95, error rate, throughput, log excerpts) |
 | `scenarios/<id>.json` | One file per scenario: signal overrides and deploys layered over `base/` |
 
@@ -27,6 +28,7 @@ Invalid fixture data (1 issue):
 - **Edge direction.** In a dependency edge, `from_service_id` calls `to_service_id`. A service's *upstream* is what it depends on (possible causes). Its *downstream* is what depends on it (impact).
 - **Edge kinds.** `sync` is a request the caller waits on, `async` goes through a queue or background job, and `external` crosses to a third party.
 - **Relative time.** Timestamps are offsets from the scenario clock (`minutes_before_start`), so data never goes stale.
+- **Incident IDs.** `INC-####`, sparse rather than consecutive, in file order. Higher IDs are more recent (`days_before_start` decreases).
 - **Deploy IDs.** `DEP-####`, unique across all data sets. The first digit matches the scenario number (`DEP-1001` is S1).
 - **Coverage.** Every team has exactly one on-call shift. Service names are unique, ignoring case, so lookup by name is unambiguous.
 
@@ -67,6 +69,25 @@ Every service has at least one runbook. Each runbook escalates to a team that ow
 | `RB-12` | Billing invoice generation failure | billing | |
 
 Eval answer keys reference runbook IDs, so don't renumber them.
+
+## Incidents at a glance
+
+Every incident's root-cause service is also in its `affected_service_ids`, and its runbook applies to that service. Every runbook is used at least once. The loader checks both.
+
+| Incident | Root cause | Runbook | Why it's there |
+|---|---|---|---|
+| `INC-0142` | payment-gateway | `RB-07` | **S1 answer.** A deploy added a synchronous fraud-score check; fixed by rollback. Its open action item is what S1's v3.8.1 deploy reintroduces. The only `RB-07` incident. |
+| `INC-0141` | payment-gateway | `RB-06` | S1 decoy: payment-gateway slow, but the card processor was degraded and nothing was deployed. |
+| `INC-0117` | payment-gateway | `RB-06` | S1 decoy: card processor outage (errors, not latency). |
+| `INC-0131` | core-db | `RB-01` | S1 decoy: checkout-api p95 above 2 s, caused by a core-db migration. |
+| `INC-0126`, `INC-0144`, `INC-0160` | checkout-api | `RB-05` | S1 decoys: checkout errors without a latency rise. |
+| `INC-0136` | web-app | `RB-11` | S1 decoy: checkout broken by a front-end release. |
+| `INC-0111` | auth | `RB-03` | **S2 match.** A past internal certificate expiry; the expiry-alert action item is still open. |
+| `INC-0127`, `INC-0151` | auth | `RB-04` | S2 decoys: 401s and logouts from signing key rotation, not certificates. |
+| `INC-0138` | notifications | `RB-08` | S2 context: a notifications deploy broke only notifications. No incident links notifications to auth. |
+| `INC-0109`, `INC-0133`, `INC-0153` | search-index | `RB-10` | S6 context: search incidents only ever affected `web-app`. |
+
+The other 15 incidents spread across the remaining runbooks so searches return realistic noise.
 
 ## Scenarios
 
