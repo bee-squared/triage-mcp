@@ -2,6 +2,14 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-20: Give incidents a relative `days_before_start`
+
+**Context:** The PRD's Incident has no timestamp, but an incident history without one can't say which incidents are recent, and real postmortems are dated. `CLAUDE.md` requires relative times.
+
+**Decision:** Add `days_before_start` (1 to 730) to each incident. Days fit the scale of incident history better than `minutes_before_start`, which deploys use. Higher incident IDs are more recent, and a test enforces that.
+
+**Revisit when:** a tool needs to filter incidents by time window; that window should then be in days too.
+
 ## 2026-11-20: Store signals as a healthy baseline plus per-scenario overrides
 
 **Context:** The PRD stores one SignalSnapshot per service per scenario, and a Scenario lists `signal_snapshot_ids[]` and `deploy_ids[]`. With 10 services and 5 data sets that is 50 snapshots, most of them identical healthy records, which hides what each scenario actually changes.

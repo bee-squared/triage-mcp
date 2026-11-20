@@ -1,0 +1,843 @@
+[
+	{
+		"id": "INC-0103",
+		"title": "Site-wide timeouts from core database connection pool exhaustion",
+		"severity": "SEV2",
+		"days_before_start": 540,
+		"affected_service_ids": [
+			"core-db",
+			"auth",
+			"checkout-api",
+			"scheduling-api",
+			"web-app"
+		],
+		"symptoms": "Checkout, booking and login requests timed out at once. Logs showed pool checkout timeouts and core-db active connections at the maximum.",
+		"root_cause_service_id": "core-db",
+		"root_cause_summary": "A scheduling-api scale-out doubled its replica count, and each replica opened a full connection pool against core-db.",
+		"resolution": "Scaled scheduling-api back to its previous replica count and cancelled long-running queries. Connections recovered within 6 minutes.",
+		"runbook_id": "RB-01",
+		"postmortem": {
+			"summary": "A routine scale-out exhausted core-db connections and took down every tier-1 service that reads from the database for 22 minutes.",
+			"contributing_factors": [
+				"Connection pool size was set per replica with no global cap",
+				"No alert on core-db connections approaching the maximum"
+			],
+			"action_items": [
+				{
+					"description": "Add an alert at 80% of core-db maximum connections",
+					"owner_team_id": "platform",
+					"status": "done"
+				},
+				{
+					"description": "Size pools from a shared connection budget instead of per replica",
+					"owner_team_id": "platform",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0106",
+		"title": "Booking reminders delayed by SMS provider rate limiting",
+		"severity": "SEV3",
+		"days_before_start": 512,
+		"affected_service_ids": ["notifications"],
+		"symptoms": "SMS reminders arrived up to 40 minutes late. Notifications queue depth grew steadily and logs showed 429 responses from the SMS provider.",
+		"root_cause_service_id": "notifications",
+		"root_cause_summary": "A reminder batch for a large business customer exceeded the SMS provider's per-second rate limit, and failed sends were retried immediately.",
+		"resolution": "Added backoff to SMS retries and spread the batch over 20 minutes. The queue drained in 35 minutes.",
+		"runbook_id": "RB-08",
+		"postmortem": {
+			"summary": "Immediate retries against a rate-limited SMS provider kept the notifications queue growing until backoff was added.",
+			"contributing_factors": [
+				"Retries had no backoff",
+				"Large batches were sent at the full queue rate"
+			],
+			"action_items": [
+				{
+					"description": "Retry SMS sends with exponential backoff on 429 responses",
+					"owner_team_id": "messaging",
+					"status": "done"
+				},
+				{
+					"description": "Throttle reminder batches per customer",
+					"owner_team_id": "messaging",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0109",
+		"title": "Provider search missing new providers after stalled index rebuild",
+		"severity": "SEV3",
+		"days_before_start": 490,
+		"affected_service_ids": ["search-index", "web-app"],
+		"symptoms": "Newly onboarded providers did not appear in web app search results for most of a day. Search latency and error rate were normal.",
+		"root_cause_service_id": "search-index",
+		"root_cause_summary": "The nightly search-index rebuild from core-db stopped at a malformed provider record, so the index stopped picking up new providers.",
+		"resolution": "Skipped the malformed record, restarted the rebuild and backfilled the missing providers.",
+		"runbook_id": "RB-10",
+		"postmortem": {
+			"summary": "A single bad record halted index rebuilds silently. Only web app search was affected; bookings and checkout were not.",
+			"contributing_factors": [
+				"The rebuild job stopped on the first bad record",
+				"No alert on index rebuild lag"
+			],
+			"action_items": [
+				{
+					"description": "Skip and report malformed records instead of stopping the rebuild",
+					"owner_team_id": "platform",
+					"status": "done"
+				},
+				{
+					"description": "Alert when index rebuild lag exceeds 2 hours",
+					"owner_team_id": "platform",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0111",
+		"title": "Internal 401s after auth mTLS certificate expired",
+		"severity": "SEV2",
+		"days_before_start": 468,
+		"affected_service_ids": [
+			"auth",
+			"checkout-api",
+			"scheduling-api",
+			"web-app"
+		],
+		"symptoms": "A sudden spike in 401 Unauthorized responses from auth at a round time, with TLS handshake failures from internal callers. There was no auth deploy.",
+		"root_cause_service_id": "auth",
+		"root_cause_summary": "The internal mTLS server certificate for auth expired. Its renewal had been done by hand and the reminder was missed.",
+		"resolution": "Issued and deployed a new certificate, then restarted auth pods one at a time. 401s stopped within 4 minutes of the rollout.",
+		"runbook_id": "RB-03",
+		"postmortem": {
+			"summary": "An expired internal certificate made auth reject every internal caller. Logins, bookings and checkout failed for 31 minutes.",
+			"contributing_factors": [
+				"Certificate renewal was manual",
+				"No alert before certificate expiry",
+				"Auth logged the expiry but no one watched those logs"
+			],
+			"action_items": [
+				{
+					"description": "Automate internal certificate renewal",
+					"owner_team_id": "identity",
+					"status": "done"
+				},
+				{
+					"description": "Alert 14 days before any internal certificate expires",
+					"owner_team_id": "identity",
+					"status": "open"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0114",
+		"title": "Monthly invoices stuck in pending after a malformed plan record",
+		"severity": "SEV3",
+		"days_before_start": 450,
+		"affected_service_ids": ["billing"],
+		"symptoms": "Business customers reported missing monthly invoices. The invoice job failed repeatedly in billing logs and invoices stayed pending.",
+		"root_cause_service_id": "billing",
+		"root_cause_summary": "A plan record with a missing currency field crashed the invoice job, which then retried the same batch forever.",
+		"resolution": "Fixed the plan record, released the stuck batch and re-ran the invoice job. All invoices were generated the same day.",
+		"runbook_id": "RB-12",
+		"postmortem": {
+			"summary": "One malformed plan record blocked the whole monthly invoice run for 9 hours.",
+			"contributing_factors": [
+				"The invoice job processed every customer in one batch",
+				"Plan records were not validated on write"
+			],
+			"action_items": [
+				{
+					"description": "Process invoices per customer so one failure doesn't block the rest",
+					"owner_team_id": "payments",
+					"status": "done"
+				},
+				{
+					"description": "Validate plan records when they are saved",
+					"owner_team_id": "payments",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0117",
+		"title": "Card authorizations failing during card processor outage",
+		"severity": "SEV2",
+		"days_before_start": 431,
+		"affected_service_ids": ["payment-gateway", "checkout-api", "web-app"],
+		"symptoms": "Payment authorizations failed across all card types. payment-gateway logged timeouts and errors calling the card processor. No recent payment-gateway deploy.",
+		"root_cause_service_id": "payment-gateway",
+		"root_cause_summary": "The external card processor had a regional outage. payment-gateway itself was healthy but could not authorize cards.",
+		"resolution": "Waited for the processor to recover and paused deposit-required bookings in the meantime. Authorizations recovered after 48 minutes.",
+		"runbook_id": "RB-06",
+		"postmortem": {
+			"summary": "An outage at the card processor blocked every deposit checkout. Nothing on the Fernhill side had changed.",
+			"contributing_factors": [
+				"Single card processor with no fallback",
+				"Customers saw a generic error instead of a retry message"
+			],
+			"action_items": [
+				{
+					"description": "Show a clear retry message when the card processor is unavailable",
+					"owner_team_id": "payments",
+					"status": "done"
+				},
+				{
+					"description": "Evaluate a secondary card processor",
+					"owner_team_id": "payments",
+					"status": "open"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0119",
+		"title": "Bookings missing from external calendars after provider token expiry",
+		"severity": "SEV3",
+		"days_before_start": 410,
+		"affected_service_ids": ["calendar-sync", "scheduling-api"],
+		"symptoms": "New bookings did not appear in providers' external calendars, and calendar-sync job lag grew for 3 hours.",
+		"root_cause_service_id": "calendar-sync",
+		"root_cause_summary": "OAuth tokens for one external calendar provider expired in bulk, and calendar-sync retried without refreshing them.",
+		"resolution": "Refreshed the tokens, replayed the backlog and contacted providers whose calendars had double bookings.",
+		"runbook_id": "RB-09",
+		"postmortem": {
+			"summary": "Expired calendar tokens stalled sync for one external calendar provider and caused a handful of double bookings.",
+			"contributing_factors": [
+				"calendar-sync did not refresh tokens on a 401 from the provider",
+				"No alert on sync job lag"
+			],
+			"action_items": [
+				{
+					"description": "Refresh calendar tokens on 401 responses",
+					"owner_team_id": "scheduling",
+					"status": "done"
+				},
+				{
+					"description": "Alert when calendar-sync lag exceeds 30 minutes",
+					"owner_team_id": "scheduling",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0122",
+		"title": "Blank booking page in one mobile browser after front-end release",
+		"severity": "SEV4",
+		"days_before_start": 395,
+		"affected_service_ids": ["web-app"],
+		"symptoms": "Browser errors spiked right after a web-app release. The booking page was blank in one older mobile browser; backend APIs were healthy.",
+		"root_cause_service_id": "web-app",
+		"root_cause_summary": "The release used a JavaScript feature that one older mobile browser doesn't support.",
+		"resolution": "Rolled web-app back to the previous release, then re-released with the feature transpiled.",
+		"runbook_id": "RB-11",
+		"postmortem": {
+			"summary": "A front-end release broke booking for a small share of mobile users for 50 minutes.",
+			"contributing_factors": [
+				"Browser support targets were not enforced in the build"
+			],
+			"action_items": [
+				{
+					"description": "Enforce browser support targets in the front-end build",
+					"owner_team_id": "web",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0124",
+		"title": "Stale booking reads during core database replica lag",
+		"severity": "SEV2",
+		"days_before_start": 372,
+		"affected_service_ids": ["core-db", "scheduling-api", "checkout-api"],
+		"symptoms": "Bookings and payments went missing for a few seconds after creation, then appeared. core-db replica lag peaked at 40 seconds.",
+		"root_cause_service_id": "core-db",
+		"root_cause_summary": "A bulk data backfill on core-db generated more write traffic than the replicas could apply.",
+		"resolution": "Paused the backfill and routed read-after-write queries to the primary until lag recovered.",
+		"runbook_id": "RB-02",
+		"postmortem": {
+			"summary": "A backfill caused replica lag, and customers saw their new bookings disappear briefly. Some booked twice.",
+			"contributing_factors": [
+				"Backfills had no write-rate limit",
+				"Read-after-write paths read from replicas"
+			],
+			"action_items": [
+				{
+					"description": "Rate-limit backfill jobs on core-db",
+					"owner_team_id": "platform",
+					"status": "done"
+				},
+				{
+					"description": "Read booking confirmations from the primary",
+					"owner_team_id": "scheduling",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0126",
+		"title": "Checkout 5xx errors from a pricing rule null reference",
+		"severity": "SEV3",
+		"days_before_start": 350,
+		"affected_service_ids": ["checkout-api", "web-app"],
+		"symptoms": "checkout-api 5xx rate rose to 6% and customers saw \"something went wrong\" at checkout. Latency was normal.",
+		"root_cause_service_id": "checkout-api",
+		"root_cause_summary": "A new pricing rule with no end date triggered a null reference in checkout-api's discount calculation.",
+		"resolution": "Disabled the pricing rule, then shipped a fix that treats a missing end date as open-ended.",
+		"runbook_id": "RB-05",
+		"postmortem": {
+			"summary": "A configuration change, not a deploy, broke checkout for customers whose cart matched the new pricing rule.",
+			"contributing_factors": [
+				"Pricing rules were not validated against checkout-api's assumptions"
+			],
+			"action_items": [
+				{
+					"description": "Validate pricing rules before they go live",
+					"owner_team_id": "payments",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0127",
+		"title": "Mass logouts after session signing key rotation",
+		"severity": "SEV3",
+		"days_before_start": 333,
+		"affected_service_ids": ["auth", "web-app", "scheduling-api"],
+		"symptoms": "Users were logged out and had to sign in again right after the scheduled key rotation. Token validation errors mentioned an unknown key ID.",
+		"root_cause_service_id": "auth",
+		"root_cause_summary": "The new session signing key was activated before it reached every auth instance, so tokens signed with it failed validation elsewhere.",
+		"resolution": "Re-published the key set to every auth instance and kept the previous key valid for 24 hours.",
+		"runbook_id": "RB-04",
+		"postmortem": {
+			"summary": "A key rotation that skipped the overlap period logged out most active users. Certificates were not involved.",
+			"contributing_factors": [
+				"Key rotation did not keep the previous key valid during rollout"
+			],
+			"action_items": [
+				{
+					"description": "Keep the previous signing key valid for 24 hours after rotation",
+					"owner_team_id": "identity",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0129",
+		"title": "Receipt emails delayed by notifications queue backlog",
+		"severity": "SEV3",
+		"days_before_start": 318,
+		"affected_service_ids": ["notifications", "billing"],
+		"symptoms": "Payment receipts and invoice emails arrived up to an hour late. Notifications queue depth grew for 50 minutes.",
+		"root_cause_service_id": "notifications",
+		"root_cause_summary": "A notifications worker deploy halved the worker count by mistake, so the queue grew faster than it drained.",
+		"resolution": "Restored the worker count. The backlog cleared in 25 minutes.",
+		"runbook_id": "RB-08",
+		"postmortem": {
+			"summary": "Half the notifications workers were missing after a deploy. Emails were late but none were lost.",
+			"contributing_factors": [
+				"Worker count lived in the deploy manifest with no review"
+			],
+			"action_items": [
+				{
+					"description": "Alert when notifications queue depth grows for 10 minutes",
+					"owner_team_id": "messaging",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0131",
+		"title": "Checkout latency from a long-running migration holding core-db connections",
+		"severity": "SEV2",
+		"days_before_start": 300,
+		"affected_service_ids": [
+			"core-db",
+			"checkout-api",
+			"payment-gateway",
+			"web-app"
+		],
+		"symptoms": "checkout-api p95 latency rose above 2 seconds and payment-gateway slowed too. There was no checkout-api or payment-gateway deploy.",
+		"root_cause_service_id": "core-db",
+		"root_cause_summary": "A schema migration on core-db held long transactions open, and queries from checkout-api and payment-gateway waited for connections.",
+		"resolution": "Cancelled the migration and re-ran it in small batches overnight.",
+		"runbook_id": "RB-01",
+		"postmortem": {
+			"summary": "Checkout looked like the problem, but both checkout services were waiting on core-db during a migration.",
+			"contributing_factors": [
+				"Migration ran during peak traffic",
+				"Migrations were not batched"
+			],
+			"action_items": [
+				{
+					"description": "Run large migrations in batches outside peak hours",
+					"owner_team_id": "platform",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0133",
+		"title": "Slow provider search after the synonym list grew",
+		"severity": "SEV4",
+		"days_before_start": 285,
+		"affected_service_ids": ["search-index", "web-app"],
+		"symptoms": "Provider search p95 rose to 900 ms in the web app. Other pages were normal.",
+		"root_cause_service_id": "search-index",
+		"root_cause_summary": "A large synonym list update made every search query expand to hundreds of terms.",
+		"resolution": "Reverted the synonym list and re-applied a trimmed version.",
+		"runbook_id": "RB-10",
+		"postmortem": {
+			"summary": "A data change slowed web app search. Booking, checkout and login were unaffected.",
+			"contributing_factors": ["Synonym list changes were not load tested"],
+			"action_items": [
+				{
+					"description": "Load test synonym list changes before publishing",
+					"owner_team_id": "platform",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0135",
+		"title": "Double bookings when scheduling-api skipped calendar-sync events",
+		"severity": "SEV3",
+		"days_before_start": 262,
+		"affected_service_ids": ["scheduling-api", "calendar-sync"],
+		"symptoms": "Providers reported double bookings. New bookings were missing from external calendars although calendar-sync was healthy.",
+		"root_cause_service_id": "scheduling-api",
+		"root_cause_summary": "A scheduling-api change stopped publishing booking events for rescheduled appointments, so calendar-sync never received them.",
+		"resolution": "Rolled scheduling-api back, then replayed the missed events to calendar-sync.",
+		"runbook_id": "RB-09",
+		"postmortem": {
+			"summary": "The problem looked like a calendar-sync stall, but the events were never sent.",
+			"contributing_factors": [
+				"No end-to-end check that every booking reaches calendar-sync"
+			],
+			"action_items": [
+				{
+					"description": "Add a reconciliation job comparing bookings with synced calendar events",
+					"owner_team_id": "scheduling",
+					"status": "in_progress"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0136",
+		"title": "Checkout button broken after front-end release",
+		"severity": "SEV3",
+		"days_before_start": 240,
+		"affected_service_ids": ["web-app"],
+		"symptoms": "Customers could not complete checkout from the booking page. Browser errors spiked after a web-app release; checkout-api showed no errors because requests never reached it.",
+		"root_cause_service_id": "web-app",
+		"root_cause_summary": "A web-app release renamed a form field, and the checkout button handler threw before sending the request.",
+		"resolution": "Rolled web-app back to the previous release.",
+		"runbook_id": "RB-11",
+		"postmortem": {
+			"summary": "A front-end bug looked like a checkout outage, but checkout-api and payment-gateway were healthy throughout.",
+			"contributing_factors": [
+				"No end-to-end checkout test in the front-end release pipeline"
+			],
+			"action_items": [
+				{
+					"description": "Add an end-to-end checkout test to the web-app release pipeline",
+					"owner_team_id": "web",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0138",
+		"title": "SMS confirmations failed after notifications template deploy",
+		"severity": "SEV3",
+		"days_before_start": 221,
+		"affected_service_ids": ["notifications"],
+		"symptoms": "SMS booking confirmations failed right after a notifications deploy. Email was unaffected and no other service reported errors.",
+		"root_cause_service_id": "notifications",
+		"root_cause_summary": "A notifications template change exceeded the SMS provider's message length limit, and the provider rejected every message.",
+		"resolution": "Rolled notifications back to the previous version and shortened the template.",
+		"runbook_id": "RB-08",
+		"postmortem": {
+			"summary": "A notifications deploy broke only notifications. Booking itself kept working; customers just didn't get a text.",
+			"contributing_factors": [
+				"Templates were not checked against the SMS length limit"
+			],
+			"action_items": [
+				{
+					"description": "Check SMS templates against the provider's length limit in CI",
+					"owner_team_id": "messaging",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0139",
+		"title": "Duplicate invoices sent after billing job retried",
+		"severity": "SEV3",
+		"days_before_start": 205,
+		"affected_service_ids": ["billing", "notifications"],
+		"symptoms": "Business customers received two copies of their monthly invoice email.",
+		"root_cause_service_id": "billing",
+		"root_cause_summary": "The invoice job timed out after sending emails but before recording them, then retried and sent them again.",
+		"resolution": "Voided the duplicate invoices and emailed affected customers a correction.",
+		"runbook_id": "RB-12",
+		"postmortem": {
+			"summary": "A non-idempotent retry in billing sent duplicate invoices to 140 business customers.",
+			"contributing_factors": ["Invoice sends were not idempotent"],
+			"action_items": [
+				{
+					"description": "Make invoice sends idempotent with a per-invoice send key",
+					"owner_team_id": "payments",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0141",
+		"title": "Payment gateway slow responses during card processor degradation",
+		"severity": "SEV2",
+		"days_before_start": 190,
+		"affected_service_ids": ["payment-gateway", "checkout-api"],
+		"symptoms": "payment-gateway and checkout-api p95 latency rose for 35 minutes. The card processor's response time had tripled. No recent payment-gateway deploy.",
+		"root_cause_service_id": "payment-gateway",
+		"root_cause_summary": "The external card processor was degraded and slow to respond. payment-gateway waited on it up to its timeout.",
+		"resolution": "Waited for the card processor to recover. Lowered the processor timeout to fail faster during the event.",
+		"runbook_id": "RB-06",
+		"postmortem": {
+			"summary": "Slow checkouts were caused outside Fernhill: the card processor was degraded and nothing had been deployed.",
+			"contributing_factors": [
+				"payment-gateway timeout to the card processor was 5 seconds",
+				"No dashboard separating processor latency from gateway latency"
+			],
+			"action_items": [
+				{
+					"description": "Show card processor latency separately on the payment-gateway dashboard",
+					"owner_team_id": "payments",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0142",
+		"title": "Checkout latency after payment-gateway deploy added a synchronous fraud check",
+		"severity": "SEV2",
+		"days_before_start": 172,
+		"affected_service_ids": ["payment-gateway", "checkout-api", "web-app"],
+		"symptoms": "checkout-api p95 latency climbed to 2.1 seconds about 10 minutes after a payment-gateway deploy. payment-gateway p95 rose with it. Other services and the card processor were healthy.",
+		"root_cause_service_id": "payment-gateway",
+		"root_cause_summary": "payment-gateway v3.6.0 added a synchronous fraud-score lookup to the card authorization path and raised the processor timeout, so every checkout waited on the slow lookup.",
+		"resolution": "Rolled payment-gateway back to v3.5.4 with `fernctl rollback payment-gateway --to previous`. checkout-api p95 recovered within 5 minutes of the rollback.",
+		"runbook_id": "RB-07",
+		"postmortem": {
+			"summary": "A payment-gateway deploy made card authorization wait on a fraud-score lookup. Checkouts slowed for 28 minutes until the rollback. Paged payments-primary.",
+			"contributing_factors": [
+				"The fraud-score lookup ran synchronously in the authorization path",
+				"The deploy was not load tested at peak traffic",
+				"Raising the processor timeout hid the slowdown from timeout alerts"
+			],
+			"action_items": [
+				{
+					"description": "Alert on payment-gateway p95 within 10 minutes of any deploy",
+					"owner_team_id": "payments",
+					"status": "done"
+				},
+				{
+					"description": "Load test the authorization path before payment-gateway deploys",
+					"owner_team_id": "payments",
+					"status": "done"
+				},
+				{
+					"description": "Move the fraud-score check off the synchronous authorization path",
+					"owner_team_id": "payments",
+					"status": "open"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0144",
+		"title": "Checkout errors for zero-decimal currencies",
+		"severity": "SEV3",
+		"days_before_start": 160,
+		"affected_service_ids": ["checkout-api"],
+		"symptoms": "checkout-api 5xx rate rose above 1% for customers paying in zero-decimal currencies. Latency was normal.",
+		"root_cause_service_id": "checkout-api",
+		"root_cause_summary": "A checkout-api deploy multiplied amounts by 100 for every currency, and payment-gateway rejected the out-of-range amounts.",
+		"resolution": "Rolled checkout-api back and added currency-aware rounding.",
+		"runbook_id": "RB-05",
+		"postmortem": {
+			"summary": "A rounding bug in checkout-api failed checkouts in two currencies for 2 hours.",
+			"contributing_factors": ["Tests covered only two-decimal currencies"],
+			"action_items": [
+				{
+					"description": "Add zero-decimal currency cases to checkout-api tests",
+					"owner_team_id": "payments",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0146",
+		"title": "Full outage when a retry storm exhausted core database connections",
+		"severity": "SEV1",
+		"days_before_start": 143,
+		"affected_service_ids": [
+			"core-db",
+			"auth",
+			"billing",
+			"checkout-api",
+			"payment-gateway",
+			"scheduling-api",
+			"web-app"
+		],
+		"symptoms": "Every tier-1 service timed out at once. core-db active connections were at the maximum and logs showed \"too many connections\" errors.",
+		"root_cause_service_id": "core-db",
+		"root_cause_summary": "A brief core-db failover triggered client retries with no jitter, and the retries opened connections faster than core-db could serve them.",
+		"resolution": "Shed load at the web-app edge, restarted the worst clients one at a time, then restored traffic gradually.",
+		"runbook_id": "RB-01",
+		"postmortem": {
+			"summary": "The longest outage on record: 41 minutes with every customer-facing flow down.",
+			"contributing_factors": [
+				"Client retries had no jitter or budget",
+				"No load shedding at the edge"
+			],
+			"action_items": [
+				{
+					"description": "Add jittered retries with a retry budget to every core-db client",
+					"owner_team_id": "platform",
+					"status": "done"
+				},
+				{
+					"description": "Add load shedding at the web-app edge",
+					"owner_team_id": "web",
+					"status": "in_progress"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0148",
+		"title": "Calendar sync lag after provider API rate limit change",
+		"severity": "SEV3",
+		"days_before_start": 128,
+		"affected_service_ids": ["calendar-sync"],
+		"symptoms": "calendar-sync job lag grew to 2 hours for one external calendar provider. Other providers synced normally.",
+		"root_cause_service_id": "calendar-sync",
+		"root_cause_summary": "The external calendar provider lowered its API rate limit, and calendar-sync batches were too large to stay under it.",
+		"resolution": "Lowered the sync batch size for that provider. Lag recovered over 90 minutes.",
+		"runbook_id": "RB-09",
+		"postmortem": {
+			"summary": "A third-party rate limit change slowed calendar sync. Bookings themselves were unaffected.",
+			"contributing_factors": [
+				"Batch size was the same for every calendar provider"
+			],
+			"action_items": [
+				{
+					"description": "Make sync batch size configurable per calendar provider",
+					"owner_team_id": "scheduling",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0150",
+		"title": "Invoice totals briefly stale during replica failover",
+		"severity": "SEV4",
+		"days_before_start": 110,
+		"affected_service_ids": ["core-db", "billing"],
+		"symptoms": "Invoice previews showed old totals for a few seconds after plan changes. core-db replica lag peaked at 12 seconds.",
+		"root_cause_service_id": "core-db",
+		"root_cause_summary": "A planned core-db replica failover left one replica catching up while it served reads.",
+		"resolution": "Removed the lagging replica from the read pool until it caught up.",
+		"runbook_id": "RB-02",
+		"postmortem": {
+			"summary": "A planned failover caused short-lived stale reads in billing. No invoices were wrong.",
+			"contributing_factors": [
+				"Replicas joined the read pool before catching up"
+			],
+			"action_items": [
+				{
+					"description": "Hold replicas out of the read pool until lag is under 1 second",
+					"owner_team_id": "platform",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0151",
+		"title": "Token validation failures from an unknown key ID after rotation",
+		"severity": "SEV2",
+		"days_before_start": 95,
+		"affected_service_ids": [
+			"auth",
+			"checkout-api",
+			"scheduling-api",
+			"web-app"
+		],
+		"symptoms": "401s rose across web-app, checkout-api and scheduling-api right after a scheduled key rotation. Errors mentioned an unknown key ID. Certificates were valid.",
+		"root_cause_service_id": "auth",
+		"root_cause_summary": "The key set cache in auth clients kept the old key set for an hour, so tokens signed with the new key failed validation.",
+		"resolution": "Flushed the key set cache in every auth client, then lowered its TTL.",
+		"runbook_id": "RB-04",
+		"postmortem": {
+			"summary": "A stale key set cache after rotation looked like an auth outage. It was fixed without touching certificates.",
+			"contributing_factors": [
+				"Key set cache TTL was longer than the rotation overlap"
+			],
+			"action_items": [
+				{
+					"description": "Lower the key set cache TTL to 5 minutes",
+					"owner_team_id": "identity",
+					"status": "done"
+				},
+				{
+					"description": "Refetch the key set on an unknown key ID",
+					"owner_team_id": "identity",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0153",
+		"title": "Search errors during full index rebuild after tokenizer upgrade",
+		"severity": "SEV3",
+		"days_before_start": 80,
+		"affected_service_ids": ["search-index", "web-app"],
+		"symptoms": "web-app search returned 504s and search-index p95 rose above 2 seconds after a search-index deploy started a full rebuild. Checkout and booking were normal.",
+		"root_cause_service_id": "search-index",
+		"root_cause_summary": "A tokenizer upgrade triggered a full index rebuild, and queries hit partially built shards.",
+		"resolution": "Served queries from the previous index until the rebuild finished.",
+		"runbook_id": "RB-10",
+		"postmortem": {
+			"summary": "A full rebuild degraded search for 70 minutes. Impact was limited to web app search.",
+			"contributing_factors": [
+				"Rebuilds swapped the index in place instead of building alongside it"
+			],
+			"action_items": [
+				{
+					"description": "Build new indexes alongside the live one and switch when complete",
+					"owner_team_id": "platform",
+					"status": "in_progress"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0155",
+		"title": "Provider profile pages blank after front-end release",
+		"severity": "SEV3",
+		"days_before_start": 62,
+		"affected_service_ids": ["web-app"],
+		"symptoms": "Provider profile pages rendered blank after a web-app release. Backend APIs were healthy.",
+		"root_cause_service_id": "web-app",
+		"root_cause_summary": "The release referenced an image component that was missing from the production bundle.",
+		"resolution": "Rolled web-app back, fixed the bundle configuration and re-released.",
+		"runbook_id": "RB-11",
+		"postmortem": {
+			"summary": "A bundling mistake blanked provider profiles for 25 minutes.",
+			"contributing_factors": ["The production bundle was not smoke tested"],
+			"action_items": [
+				{
+					"description": "Smoke test key pages against the production bundle before release",
+					"owner_team_id": "web",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0156",
+		"title": "Reminder emails delayed by email provider throttling",
+		"severity": "SEV4",
+		"days_before_start": 45,
+		"affected_service_ids": ["notifications"],
+		"symptoms": "Reminder emails arrived up to 30 minutes late. The email provider returned rate-limit errors and queue depth grew.",
+		"root_cause_service_id": "notifications",
+		"root_cause_summary": "The email provider throttled Fernhill's account during a large reminder batch.",
+		"resolution": "Spread the batch over a longer window and asked the provider to raise the limit.",
+		"runbook_id": "RB-08",
+		"postmortem": {
+			"summary": "Email reminders were late but delivered. SMS and booking were unaffected.",
+			"contributing_factors": [
+				"Email batches were not throttled like SMS batches"
+			],
+			"action_items": [
+				{
+					"description": "Throttle email batches the same way as SMS batches",
+					"owner_team_id": "messaging",
+					"status": "done"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0158",
+		"title": "Invoice PDFs missing tax line after billing deploy",
+		"severity": "SEV3",
+		"days_before_start": 27,
+		"affected_service_ids": ["billing"],
+		"symptoms": "Business customers reported invoices without a tax line after a billing deploy. Invoice generation itself succeeded.",
+		"root_cause_service_id": "billing",
+		"root_cause_summary": "A billing template change dropped the tax line for customers on annual plans.",
+		"resolution": "Rolled billing back and regenerated affected invoices.",
+		"runbook_id": "RB-12",
+		"postmortem": {
+			"summary": "A template regression in billing produced incorrect invoices for annual-plan customers.",
+			"contributing_factors": ["Invoice templates had no snapshot tests"],
+			"action_items": [
+				{
+					"description": "Add snapshot tests for invoice PDFs",
+					"owner_team_id": "payments",
+					"status": "open"
+				}
+			]
+		}
+	},
+	{
+		"id": "INC-0160",
+		"title": "Checkout 5xx from expired pricing cache entries",
+		"severity": "SEV3",
+		"days_before_start": 12,
+		"affected_service_ids": ["checkout-api", "web-app"],
+		"symptoms": "checkout-api 5xx rate rose to 3% with no change in latency. Errors began when the pricing cache refreshed.",
+		"root_cause_service_id": "checkout-api",
+		"root_cause_summary": "checkout-api treated an empty pricing cache entry as an error instead of reloading it from core-db.",
+		"resolution": "Restarted checkout-api pods to repopulate the cache, then shipped a fix to reload empty entries.",
+		"runbook_id": "RB-05",
+		"postmortem": {
+			"summary": "A cache edge case in checkout-api failed checkouts for 15 minutes.",
+			"contributing_factors": ["Cache misses were handled as errors"],
+			"action_items": [
+				{
+					"description": "Reload empty pricing cache entries instead of failing",
+					"owner_team_id": "payments",
+					"status": "done"
+				}
+			]
+		}
+	}
+]
