@@ -1,0 +1,45 @@
+{
+	"id": "blast-radius",
+	"description": "Search is degraded during a full index rebuild started by a search-index deploy. Only web-app search is affected; checkout is not (S6).",
+	"signal_overrides": [
+		{
+			"service_id": "web-app",
+			"status": "degraded",
+			"p95_ms": 650,
+			"error_rate_pct": 1.8,
+			"log_excerpts": [
+				"GET /search returned 504 from search-index",
+				"Booking, checkout and login pages normal"
+			]
+		},
+		{
+			"service_id": "search-index",
+			"status": "degraded",
+			"p95_ms": 2900,
+			"error_rate_pct": 14,
+			"throughput_rpm": 1750,
+			"log_excerpts": [
+				"Full index rebuild from core-db stuck at 61% for 25 minutes; queries hit partial shards",
+				"Query timeout after 2500ms on shard 3"
+			]
+		}
+	],
+	"deploys": [
+		{
+			"id": "DEP-6001",
+			"service_id": "search-index",
+			"team_id": "platform",
+			"version": "v1.20.0",
+			"minutes_before_start": 31,
+			"change_summary": "Switch to the new tokenizer, which triggers a full index rebuild."
+		},
+		{
+			"id": "DEP-6002",
+			"service_id": "checkout-api",
+			"team_id": "payments",
+			"version": "v4.3.2",
+			"minutes_before_start": 44,
+			"change_summary": "Fix rounding in deposit display for zero-decimal currencies."
+		}
+	]
+}

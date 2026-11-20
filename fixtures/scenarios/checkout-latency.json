@@ -1,0 +1,71 @@
+{
+	"id": "checkout-latency",
+	"description": "Checkout is slow. A payment-gateway deploy 12 minutes before start added a slow fraud-score check to card authorization (S1).",
+	"signal_overrides": [
+		{
+			"service_id": "web-app",
+			"p95_ms": 780,
+			"error_rate_pct": 0.05,
+			"log_excerpts": [
+				"Checkout pages slower than usual; booking, search and login pages normal"
+			]
+		},
+		{
+			"service_id": "checkout-api",
+			"status": "degraded",
+			"p95_ms": 2400,
+			"error_rate_pct": 0.6,
+			"throughput_rpm": 880,
+			"log_excerpts": [
+				"POST /checkout/confirm p95 2.4s; 92% of request time spent waiting on payment-gateway /authorize",
+				"Upstream timeout calling payment-gateway after 2500ms, retrying once"
+			]
+		},
+		{
+			"service_id": "payment-gateway",
+			"status": "degraded",
+			"p95_ms": 2150,
+			"error_rate_pct": 0.4,
+			"throughput_rpm": 610,
+			"log_excerpts": [
+				"v3.8.1 authorize path: fraud_score_check took 1870ms",
+				"Processor client timeout is now 2000ms; requests queueing behind fraud-score calls",
+				"Card processor responding normally (p95 140ms)"
+			]
+		}
+	],
+	"deploys": [
+		{
+			"id": "DEP-1001",
+			"service_id": "payment-gateway",
+			"team_id": "payments",
+			"version": "v3.8.1",
+			"minutes_before_start": 12,
+			"change_summary": "Add a synchronous fraud-score check to card authorization and raise the processor client timeout from 800 ms to 2 s."
+		},
+		{
+			"id": "DEP-1002",
+			"service_id": "scheduling-api",
+			"team_id": "scheduling",
+			"version": "v2.9.3",
+			"minutes_before_start": 34,
+			"change_summary": "Fix wording in reschedule confirmation emails."
+		},
+		{
+			"id": "DEP-1003",
+			"service_id": "web-app",
+			"team_id": "web",
+			"version": "v12.4.0",
+			"minutes_before_start": 180,
+			"change_summary": "Redesign the provider profile page header."
+		},
+		{
+			"id": "DEP-1004",
+			"service_id": "notifications",
+			"team_id": "messaging",
+			"version": "v5.1.4",
+			"minutes_before_start": 410,
+			"change_summary": "Retry SMS sends when the SMS provider returns 429."
+		}
+	]
+}

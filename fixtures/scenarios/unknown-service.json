@@ -1,0 +1,29 @@
+{
+	"id": "unknown-service",
+	"description": "Every service is healthy. The user asks about billing-v2, which does not exist; billing is the closest real service (S4).",
+	"signal_overrides": [
+		{
+			"service_id": "billing",
+			"throughput_rpm": 160,
+			"log_excerpts": ["Monthly invoice run finished; 0 failures"]
+		}
+	],
+	"deploys": [
+		{
+			"id": "DEP-4001",
+			"service_id": "billing",
+			"team_id": "payments",
+			"version": "v2.14.0",
+			"minutes_before_start": 26,
+			"change_summary": "Add a footer with the support link to invoice PDFs."
+		},
+		{
+			"id": "DEP-4002",
+			"service_id": "scheduling-api",
+			"team_id": "scheduling",
+			"version": "v2.9.4",
+			"minutes_before_start": 70,
+			"change_summary": "Raise the rescheduling cutoff from 12 to 24 hours."
+		}
+	]
+}

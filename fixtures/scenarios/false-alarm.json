@@ -1,0 +1,38 @@
+{
+	"id": "false-alarm",
+	"description": "Every service is within its SLO. A brief web-app latency blip has already recovered and recent deploys are routine (S3).",
+	"signal_overrides": [
+		{
+			"service_id": "web-app",
+			"p95_ms": 740,
+			"log_excerpts": [
+				"p95 briefly reached 790ms 15 minutes before start, then recovered"
+			]
+		},
+		{
+			"service_id": "notifications",
+			"throughput_rpm": 2600,
+			"log_excerpts": [
+				"Reminder batch for tomorrow's bookings in progress; queue draining normally"
+			]
+		}
+	],
+	"deploys": [
+		{
+			"id": "DEP-3001",
+			"service_id": "web-app",
+			"team_id": "web",
+			"version": "v12.4.1",
+			"minutes_before_start": 22,
+			"change_summary": "Copy change on the pricing page."
+		},
+		{
+			"id": "DEP-3002",
+			"service_id": "search-index",
+			"team_id": "platform",
+			"version": "v1.19.4",
+			"minutes_before_start": 55,
+			"change_summary": "Update the synonym list for provider categories."
+		}
+	]
+}

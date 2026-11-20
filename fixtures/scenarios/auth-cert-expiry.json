@@ -1,0 +1,67 @@
+{
+	"id": "auth-cert-expiry",
+	"description": "Logins and internal calls fail with 401s because the auth internal TLS certificate expired. A notifications deploy 9 minutes before start is a red herring (S2).",
+	"signal_overrides": [
+		{
+			"service_id": "web-app",
+			"status": "degraded",
+			"error_rate_pct": 15,
+			"log_excerpts": ["Login failures spiking: auth returned 401"]
+		},
+		{
+			"service_id": "checkout-api",
+			"status": "degraded",
+			"error_rate_pct": 18,
+			"log_excerpts": ["Session validation failed: 401 from auth"]
+		},
+		{
+			"service_id": "auth",
+			"status": "degraded",
+			"p95_ms": 38,
+			"error_rate_pct": 41,
+			"throughput_rpm": 7300,
+			"log_excerpts": [
+				"mTLS handshake rejected: server certificate expired 19 minutes before start (CN=auth-internal)",
+				"401 invalid_client_certificate returned to checkout-api",
+				"401 invalid_client_certificate returned to scheduling-api",
+				"Certificate auto-renewal job last succeeded 91 days ago"
+			]
+		},
+		{
+			"service_id": "scheduling-api",
+			"status": "degraded",
+			"error_rate_pct": 22,
+			"log_excerpts": ["Session check failed: 401 from auth; request rejected"]
+		},
+		{
+			"service_id": "notifications",
+			"log_excerpts": ["v5.2.0 rolled out; queue depth and send latency normal"]
+		}
+	],
+	"deploys": [
+		{
+			"id": "DEP-2001",
+			"service_id": "notifications",
+			"team_id": "messaging",
+			"version": "v5.2.0",
+			"minutes_before_start": 9,
+			"change_summary": "Move SMS reminder templates to the new layout."
+		},
+		{
+			"id": "DEP-2002",
+			"service_id": "calendar-sync",
+			"team_id": "scheduling",
+			"version": "v1.14.2",
+			"minutes_before_start": 48,
+			"change_summary": "Lower the sync batch size for one external calendar provider."
+		},
+		{
+			"id": "DEP-2003",
+			"service_id": "billing",
+			"team_id": "payments",
+			"version": "v2.13.0",
+			"minutes_before_start": 300,
+			"change_summary": "Add a tax line to invoice PDFs."
+		}
+	]
+}
