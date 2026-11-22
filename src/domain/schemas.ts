@@ -86,11 +86,53 @@ export const RunbookSchema = z.strictObject({
 	}),
 });
 
+/** Stable incident ID (`INC-0142`). Eval answer keys reference these. */
+export const IncidentIdSchema = z
+	.string()
+	.regex(/^INC-\d{4}$/, "must be an incident ID like `INC-0142`");
+
+/** Shared with `acknowledge_incident`. */
+export const SEVERITIES = ["SEV1", "SEV2", "SEV3", "SEV4"] as const;
+export const SeveritySchema = z.enum(SEVERITIES);
+
+export const ACTION_ITEM_STATUSES = ["open", "in_progress", "done"] as const;
+
+const prose = z.string().min(1).max(300);
+
+export const IncidentSchema = z.strictObject({
+	id: IncidentIdSchema,
+	title: z.string().min(1).max(100),
+	severity: SeveritySchema,
+	/** How long before the scenario clock the incident started (relative, never a date). */
+	days_before_start: z.int().positive().max(730),
+	/** Services that showed symptoms, including the root-cause service. */
+	affected_service_ids: z.array(ServiceIdSchema).min(1),
+	symptoms: prose,
+	root_cause_service_id: ServiceIdSchema,
+	root_cause_summary: prose,
+	resolution: prose,
+	runbook_id: RunbookIdSchema,
+	postmortem: z.strictObject({
+		summary: prose,
+		contributing_factors: z.array(z.string().min(1).max(200)).min(1),
+		action_items: z
+			.array(
+				z.strictObject({
+					description: z.string().min(1).max(200),
+					owner_team_id: TeamIdSchema,
+					status: z.enum(ACTION_ITEM_STATUSES),
+				}),
+			)
+			.min(1),
+	}),
+});
+
 export const ServicesFileSchema = z.array(ServiceSchema).min(1);
 export const DependenciesFileSchema = z.array(DependencySchema);
 export const TeamsFileSchema = z.array(TeamSchema).min(1);
 export const OnCallFileSchema = z.array(OnCallShiftSchema);
 export const RunbooksFileSchema = z.array(RunbookSchema).min(1);
+export const IncidentsFileSchema = z.array(IncidentSchema).min(1);
 
 /** The 6 MVP scenarios (PRD FR-35). Data sets live in `fixtures/scenarios/`. */
 export const SCENARIO_IDS = [
@@ -186,6 +228,9 @@ export type DependencyKind = (typeof DEPENDENCY_KINDS)[number];
 export type Team = z.infer<typeof TeamSchema>;
 export type OnCallShift = z.infer<typeof OnCallShiftSchema>;
 export type Runbook = z.infer<typeof RunbookSchema>;
+export type Severity = z.infer<typeof SeveritySchema>;
+export type ActionItemStatus = (typeof ACTION_ITEM_STATUSES)[number];
+export type Incident = z.infer<typeof IncidentSchema>;
 export type ScenarioId = z.infer<typeof ScenarioIdSchema>;
 export type SignalStatus = (typeof SIGNAL_STATUSES)[number];
 export type BaselineSignal = z.infer<typeof BaselineSignalSchema>;

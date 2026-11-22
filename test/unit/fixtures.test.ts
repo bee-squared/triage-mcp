@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import dependencies from "../../fixtures/base/dependencies.json" with {
 	type: "json",
 };
+import incidents from "../../fixtures/base/incidents.json" with {
+	type: "json",
+};
 import oncall from "../../fixtures/base/oncall.json" with { type: "json" };
 import runbooks from "../../fixtures/base/runbooks.json" with { type: "json" };
 import services from "../../fixtures/base/services.json" with { type: "json" };
@@ -17,12 +20,20 @@ import {
 type Rec = Record<string, unknown>;
 
 const raw = () =>
-	structuredClone({ services, dependencies, teams, oncall, runbooks }) as {
+	structuredClone({
+		services,
+		dependencies,
+		teams,
+		oncall,
+		runbooks,
+		incidents,
+	}) as {
 		services: Rec[];
 		dependencies: Rec[];
 		teams: Rec[];
 		oncall: Rec[];
 		runbooks: Rec[];
+		incidents: Rec[];
 	};
 
 function at(records: Rec[], index: number): Rec {
@@ -132,6 +143,93 @@ describe("base runbooks", () => {
 	});
 });
 
+describe("base incidents", () => {
+	const catalog = loadCatalog();
+	const incident = (id: string) => {
+		const found = catalog.incidents.find((i) => i.id === id);
+		if (!found) throw new Error(`no incident ${id}`);
+		return found;
+	};
+	const byRunbook = (id: string) =>
+		catalog.incidents.filter((i) => i.runbook_id === id).map((i) => i.id);
+
+	it("has at least 30 incidents using every runbook (FR-6)", () => {
+		expect(catalog.incidents.length).toBeGreaterThanOrEqual(30);
+		const used = new Set(catalog.incidents.map((i) => i.runbook_id));
+		for (const r of catalog.runbooks) expect(used, r.id).toContain(r.id);
+	});
+
+	it("lists incidents in ID order, with higher IDs more recent", () => {
+		const ids = catalog.incidents.map((i) => i.id);
+		expect(ids).toEqual([...ids].sort());
+		const days = catalog.incidents.map((i) => i.days_before_start);
+		expect(days).toEqual([...days].sort((a, b) => b - a));
+	});
+
+	it("has INC-0142 as the S1 answer: a payment-gateway deploy regression fixed by rollback", () => {
+		const inc = incident("INC-0142");
+		expect(inc.root_cause_service_id).toBe("payment-gateway");
+		expect(inc.runbook_id).toBe("RB-07");
+		expect(inc.affected_service_ids).toContain("checkout-api");
+		expect(inc.symptoms).toMatch(/latency/);
+		expect(inc.symptoms).toMatch(/deploy/);
+		expect(inc.resolution).toMatch(/fernctl rollback payment-gateway/);
+		// The open action item is what S1's v3.8.1 deploy reintroduces.
+		expect(inc.postmortem.action_items).toContainEqual(
+			expect.objectContaining({
+				description: expect.stringMatching(/fraud-score/),
+				status: "open",
+			}),
+		);
+		expect(byRunbook("RB-07")).toEqual(["INC-0142"]);
+	});
+
+	it("has S1 decoys: checkout pain with a different cause or runbook", () => {
+		const decoys = catalog.incidents.filter(
+			(i) =>
+				i.id !== "INC-0142" && i.affected_service_ids.includes("checkout-api"),
+		);
+		expect(decoys.length).toBeGreaterThanOrEqual(5);
+		for (const i of decoys) expect(i.runbook_id, i.id).not.toBe("RB-07");
+		// Same root-cause service as INC-0142, but the card processor, not a deploy.
+		expect(incident("INC-0141").root_cause_service_id).toBe("payment-gateway");
+		expect(incident("INC-0141").runbook_id).toBe("RB-06");
+		expect(incident("INC-0131").symptoms).toMatch(/checkout-api p95/);
+		expect(incident("INC-0131").root_cause_service_id).toBe("core-db");
+	});
+
+	it("has an auth certificate expiry for S2, and decoys that don't involve certificates", () => {
+		expect(byRunbook("RB-03")).toEqual(["INC-0111"]);
+		const authIncidents = catalog.incidents.filter(
+			(i) => i.root_cause_service_id === "auth",
+		);
+		expect(authIncidents.map((i) => i.runbook_id)).toContain("RB-04");
+		// No past incident ties notifications to an auth outage.
+		for (const i of catalog.incidents) {
+			if (i.root_cause_service_id === "notifications") {
+				expect(i.affected_service_ids, i.id).not.toContain("auth");
+			}
+		}
+	});
+
+	it("keeps search-index incidents limited to web-app (S6)", () => {
+		const search = catalog.incidents.filter(
+			(i) => i.root_cause_service_id === "search-index",
+		);
+		expect(search.length).toBeGreaterThan(0);
+		for (const i of search) {
+			expect([...i.affected_service_ids].sort(), i.id).toEqual([
+				"search-index",
+				"web-app",
+			]);
+		}
+	});
+
+	it("never mentions billing-v2 (S4)", () => {
+		expect(JSON.stringify(catalog.incidents)).not.toContain("billing-v2");
+	});
+});
+
 describe("buildCatalog validation (FR-2)", () => {
 	it("names the file and field for a schema error", () => {
 		const data = raw();
@@ -233,6 +331,57 @@ describe("buildCatalog validation (FR-2)", () => {
 		);
 		expect(issues).toContainEqual(
 			expect.stringMatching(/runbooks\.json: \[12\]\.title: duplicate value/),
+		);
+	});
+
+	it("rejects malformed incidents", () => {
+		const data = raw();
+		at(data.incidents, 0).id = "INC-142";
+		at(data.incidents, 1).severity = "P1";
+		const issues = issuesFor(data);
+		expect(issues).toContain(
+			"fixtures/base/incidents.json: [0].id: must be an incident ID like `INC-0142`",
+		);
+		expect(issues).toContainEqual(
+			expect.stringMatching(
+				/^fixtures\/base\/incidents\.json: \[1\]\.severity: /,
+			),
+		);
+	});
+
+	it("rejects broken incident references and duplicates", () => {
+		const data = raw();
+		const first = at(data.incidents, 0);
+		first.affected_service_ids = ["billing-v2", "auth", "auth"];
+		first.root_cause_service_id = "core-db";
+		const second = at(data.incidents, 1);
+		second.runbook_id = "RB-99";
+		const third = at(data.incidents, 2);
+		third.runbook_id = "RB-07";
+		const fourth = at(data.incidents, 3);
+		(fourth.postmortem as { action_items: Rec[] }).action_items[0] = {
+			description: "Fix it",
+			owner_team_id: "nobody",
+			status: "open",
+		};
+		data.incidents.push({
+			...at(data.incidents, 4),
+			title: String(at(data.incidents, 5).title).toUpperCase(),
+		});
+		const issues = issuesFor(data);
+		expect(issues).toEqual(
+			expect.arrayContaining([
+				'fixtures/base/incidents.json: [0].affected_service_ids[0]: unknown service "billing-v2"',
+				'fixtures/base/incidents.json: [0].affected_service_ids[2]: service "auth" is listed twice',
+				'fixtures/base/incidents.json: [0].root_cause_service_id: "core-db" must also be listed in affected_service_ids',
+				'fixtures/base/incidents.json: [1].runbook_id: unknown runbook "RB-99"',
+				'fixtures/base/incidents.json: [2].runbook_id: RB-07 doesn\'t apply to the root-cause service "search-index"',
+				'fixtures/base/incidents.json: [3].postmortem.action_items[0].owner_team_id: unknown team "nobody"',
+				'fixtures/base/incidents.json: [30].id: duplicate value "INC-0114" (first used at [4])',
+			]),
+		);
+		expect(issues).toContainEqual(
+			expect.stringMatching(/incidents\.json: \[30\]\.title: duplicate value/),
 		);
 	});
 
