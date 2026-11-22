@@ -34,6 +34,22 @@ describe("listRecentDeploys", () => {
 		},
 	);
 
+	it("has a default window of exactly 60 minutes, and a minimum of 1", () => {
+		const base = loadScenario("checkout-latency");
+		const [deploy] = base.deploys;
+		if (!deploy) throw new Error("S1 has no deploys");
+		const deploys = [1, 60, 61].map((minutes_before_start) => ({
+			...deploy,
+			minutes_before_start,
+		}));
+		const ages = (query?: DeployQuery) =>
+			listRecentDeploys({ ...base, deploys }, query).map(
+				(d) => d.minutes_before_start,
+			);
+		expect(ages()).toEqual([1, 60]);
+		expect(ages({ withinMinutes: 1 })).toEqual([1]);
+	});
+
 	it("filters by service", () => {
 		expect(
 			list("checkout-latency", { service: service("payment-gateway") }),

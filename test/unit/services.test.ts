@@ -75,14 +75,69 @@ describe("closestMatches", () => {
 		expect(suggest("api app auth billing core search")).toHaveLength(3);
 	});
 
-	it("works on records without names, such as incidents", () => {
-		const ids = catalog.incidents.map(({ id }) => ({ id }));
-		const matches = closestMatches("INC-1042", ids);
-		expect(matches).toHaveLength(3);
-		expect(matches).toContain("INC-0142");
+	it("works on teams", () => {
+		expect(closestMatches("payment", catalog.teams)[0]).toBe("payments");
 	});
 
-	it("ignores everything past the first 100 characters", () => {
-		expect(suggest(`${"z".repeat(100)} billing`)).toEqual([]);
+	it("reads exactly the first 100 characters", () => {
+		expect(suggest(`${"z".repeat(97)} db`)).toEqual(["core-db"]); // ends at 100
+		expect(suggest(`${"z".repeat(98)} db`)).toEqual([]); // ends at 101
+	});
+
+	// The long second word keeps overall similarity under the threshold, so
+	// only the word rules can make these match.
+	it.each([
+		["identical, 2 characters", "ab", "ab", true],
+		["identical, 1 character", "a", "a", false],
+		["prefix of 3", "abc", "abcdef", true],
+		["prefix of 3, query longer", "abcdef", "abc", true],
+		["prefix of 2", "ab", "abcdef", false],
+		["common first 5", "abcdexx", "abcdeyy", true],
+		["common first 4", "abcdxx", "abcdyy", false],
+		["substitution in 4", "abcd", "abxd", true],
+		["substitution in 3", "abc", "axc", false],
+		["insertion", "abcd", "abxcd", true],
+		["deletion", "abxcd", "abcd", true],
+		["swapped neighbours", "abcd", "acbd", true],
+		["swapped first two", "abcd", "bacd", true],
+		["two edits", "abcdef", "axcxef", false],
+		["a swap plus an edit", "abcdef", "bacdxf", false],
+	])("word rule, %s: %s and %s match is %s", (_, query, word, matches) => {
+		const label = `${word}-${"0".repeat(30)}`;
+		const found = closestMatches(query, [{ id: label, name: label }]);
+		expect(found).toEqual(matches ? [label] : []);
+	});
+
+	it.each([
+		["60%", "abcde", "axcye", true],
+		["57%", "abcdefg", "axcyezg", false],
+		["33%, repeats are not swaps", "aaa", "a", false],
+	])(
+		"overall similarity of %s: %s and %s match is %s",
+		(_, query, id, matches) => {
+			const found = closestMatches(query, [{ id, name: id }]);
+			expect(found).toEqual(matches ? [id] : []);
+		},
+	);
+
+	it("ranks a shared word above higher similarity alone", () => {
+		const shared = `abcde-${"0".repeat(30)}`;
+		const found = closestMatches("abcde", [
+			{ id: "axcye", name: "axcye" },
+			{ id: shared, name: shared },
+		]);
+		expect(found).toEqual([shared, "axcye"]);
+	});
+
+	it("ranks more shared words first", () => {
+		expect(suggest("payment api checkout")[0]).toBe("checkout-api");
+	});
+
+	it("breaks a tie on shared words by similarity", () => {
+		const found = closestMatches("abcd", [
+			{ id: "abcd-000000", name: "abcd-000000" },
+			{ id: "abcd-0", name: "abcd-0" },
+		]);
+		expect(found).toEqual(["abcd-0", "abcd-000000"]);
 	});
 });

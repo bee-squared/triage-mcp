@@ -1,5 +1,9 @@
-// "Did you mean" suggestions for not-found errors (PRD FR-14). Only plausible
-// matches are returned, so an unrelated query gets none instead of 3 guesses.
+// "Did you mean" suggestions for named records such as services and teams
+// (PRD FR-14). Matching is loose because these are hints and are never resolved.
+//
+// Not for IDs like `INC-0142` or `RB-07`: every ID shares its prefix, so any
+// query with that prefix would match all of them. `name` is required for that
+// reason.
 
 export const MAX_SUGGESTIONS = 3;
 
@@ -10,7 +14,7 @@ const MIN_SIMILARITY = 0.6;
 
 export interface Candidate {
 	readonly id: string;
-	readonly name?: string;
+	readonly name: string;
 }
 
 const toWords = (text: string): string[] =>
@@ -44,7 +48,7 @@ function wordsMatch(a: string, b: string): boolean {
 	const shorter = Math.min(a.length, b.length);
 	if (shorter >= 3 && (a.startsWith(b) || b.startsWith(a))) return true;
 	// Same stem: `scheduler` and `scheduling`, `notifs` and `notifications`.
-	if (shorter >= 5 && a.slice(0, 5) === b.slice(0, 5)) return true;
+	if (a.slice(0, 5) === b.slice(0, 5)) return true;
 	return shorter >= 4 && editDistance(a, b) <= 1;
 }
 
@@ -69,10 +73,7 @@ export function closestMatches(
 	return candidates
 		.map(({ id, name }) => ({
 			id,
-			score: Math.max(
-				score(words, toWords(id)),
-				name === undefined ? 0 : score(words, toWords(name)),
-			),
+			score: Math.max(score(words, toWords(id)), score(words, toWords(name))),
 		}))
 		.filter((match) => match.score > 0)
 		.sort((a, b) => b.score - a.score)
