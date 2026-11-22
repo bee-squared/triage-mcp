@@ -27,6 +27,7 @@ import {
 	loadCatalog,
 	parseFixture,
 } from "./fixtures.js";
+import { sloBreaches } from "./health.js";
 import {
 	type BaselineSignal,
 	BaselineSignalsFileSchema,
@@ -54,31 +55,6 @@ export const SCENARIO_FILES = Object.fromEntries(
 export interface RawScenarios {
 	readonly baseline: unknown;
 	readonly scenarios: Readonly<Record<ScenarioId, unknown>>;
-}
-
-/** Error budget implied by an availability SLO, as a percentage of requests. */
-export function errorBudgetPct(service: Service): number {
-	return Math.round((100 - service.slo_availability_pct) * 1e6) / 1e6;
-}
-
-/** Which SLOs a signal breaches. Empty means within SLO. */
-export function sloBreaches(
-	signal: Pick<BaselineSignal, "p95_ms" | "error_rate_pct">,
-	service: Service,
-): string[] {
-	const breaches: string[] = [];
-	if (signal.p95_ms > service.slo_p95_ms) {
-		breaches.push(
-			`p95_ms ${signal.p95_ms} is above the ${service.slo_p95_ms} ms SLO`,
-		);
-	}
-	const budget = errorBudgetPct(service);
-	if (signal.error_rate_pct > budget) {
-		breaches.push(
-			`error_rate_pct ${signal.error_rate_pct} is above the ${budget}% error budget`,
-		);
-	}
-	return breaches;
 }
 
 /** Where a merged signal field came from, so errors point at the right file. */

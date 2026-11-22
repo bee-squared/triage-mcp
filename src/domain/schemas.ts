@@ -184,6 +184,9 @@ export const DeployIdSchema = z
 	.string()
 	.regex(/^DEP-\d{4}$/, "must be a deploy ID like `DEP-1001`");
 
+/** The widest deploy window a query accepts, so no deploy can be older. */
+export const MAX_DEPLOY_WINDOW_MINUTES = 1440;
+
 /** A deploy as stored in a scenario file; the resolver adds `scenario_id`. */
 export const DeployRecordSchema = z.strictObject({
 	id: DeployIdSchema,
@@ -192,8 +195,8 @@ export const DeployRecordSchema = z.strictObject({
 	version: z
 		.string()
 		.regex(/^v\d+\.\d+\.\d+$/, "must be a version like `v3.8.1`"),
-	/** Offset from the scenario clock. The deploy tool's window maxes out at 1440. */
-	minutes_before_start: z.int().min(0).max(1440),
+	/** Offset from the scenario clock. */
+	minutes_before_start: z.int().min(0).max(MAX_DEPLOY_WINDOW_MINUTES),
 	change_summary: z.string().min(1).max(200),
 });
 

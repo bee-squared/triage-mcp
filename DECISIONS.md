@@ -2,6 +2,20 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-22: List unhealthy dependencies first and suggest only plausible matches
+
+**Context:** Lists cap at 5 by default, and a dependency walk can be longer. In S6, walking downstream from `core-db` by distance alone puts both failing services, `search-index` and `web-app`, after the cap. Separately, FR-14 asks for "up to 3 closest" matches without saying what to do when nothing is close.
+
+**Decision:**
+
+- `walkDependencies` orders by status (down, degraded, healthy), then depth, then catalog order. Each result carries its depth and the edges that reached it, so the graph's shape isn't lost.
+- Service lookup resolves only exact IDs and names, after normalizing case and separators. Anything else is not found.
+- Suggestions must share a word with the query (allowing a prefix, a common five-letter stem or one typo) or be at least 60% similar overall. An unrelated query gets none, so the model isn't handed 3 arbitrary services to blame.
+
+**Trade-off:** output isn't in hop order, and a not-found error can have no suggestions. Its message then needs another next step, such as how to list valid services.
+
+**Revisit when:** evals show the model misreading the order or getting stuck after an empty suggestion list.
+
 ## 2026-11-20: Give incidents a relative `days_before_start`
 
 **Context:** The PRD's Incident has no timestamp, but an incident history without one can't say which incidents are recent, and real postmortems are dated. `CLAUDE.md` requires relative times.
