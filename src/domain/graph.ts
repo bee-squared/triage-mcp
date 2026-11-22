@@ -15,8 +15,14 @@ export interface RelatedService {
 	/** Fewest hops from the starting service. */
 	readonly depth: number;
 	/**
-	 * Every edge walked to reach this service. There can be several, of
-	 * different kinds: `notifications` is called by two services.
+	 * Every edge the walk followed to this service, which is more than its
+	 * shortest path: an edge can also come from a service at the same depth or
+	 * farther from the start. To explain `depth`, use only edges whose other end
+	 * is at `depth - 1` (the start is at 0).
+	 *
+	 * The others still matter for impact and can differ in kind: downstream of
+	 * `core-db`, `checkout-api` is one sync hop away and also depends on it
+	 * through an async call to `billing`.
 	 */
 	readonly via: readonly Dependency[];
 }
