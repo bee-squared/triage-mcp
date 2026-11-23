@@ -6,7 +6,8 @@ export type ServiceLookup =
 	| { readonly found: true; readonly service: Service }
 	| { readonly found: false; readonly suggestions: readonly string[] };
 
-const normalize = (text: string): string =>
+/** Case-insensitive, treating spaces, hyphens and underscores alike. */
+export const normalize = (text: string): string =>
 	text
 		.trim()
 		.toLowerCase()
