@@ -2,6 +2,22 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-22: List unhealthy dependencies first and suggest loose matches for names only
+
+**Context:** Lists cap at 5 by default, and a dependency walk can be longer. In S6, walking downstream from `core-db` by distance alone puts both failing services, `search-index` and `web-app`, after the cap. Separately, FR-14 asks for "up to 3 closest" matches without saying what to do when nothing is close.
+
+**Decision:**
+
+- `walkDependencies` orders by status (down, degraded, healthy), then depth, then catalog order. Each result carries its depth and the edges that reached it, so the graph's shape isn't lost.
+- Service lookup resolves only exact IDs and names, after normalizing case and separators. Anything else is not found.
+- For named records (services, teams), a suggestion must share a word with the query or be at least 60% similar overall. Words match if they are identical (2+ characters), one is a prefix of the other (3+), they start with the same 5 characters, or they are one edit apart (4+). A query with no such match, like `kafka`, gets none instead of 3 arbitrary services.
+- These rules are loose, so some unrelated queries do match (`apple` suggests `web-app`, `checking` suggests `checkout-api`). That is accepted because suggestions are hints and are never resolved.
+- The matcher doesn't take bare IDs, and `name` is required to enforce it. Every incident ID shares `INC-`, so `INC-banana` would suggest 3 real incidents, which the hallucinated-ID scorer couldn't catch. Ignoring the shared word isn't enough: `INC-9999` still passes 60% similarity on the prefix. IDs need a rule that compares the numeric part, starting with `get_incident` in PR 8 and reusable for runbooks in PR 9.
+
+**Trade-off:** output isn't in hop order, and a not-found error can have no suggestions. Its message then needs another next step, such as how to list valid services.
+
+**Revisit when:** evals show the model misreading the order, following a loose suggestion to the wrong service, or getting stuck after an empty suggestion list.
+
 ## 2026-11-20: Give incidents a relative `days_before_start`
 
 **Context:** The PRD's Incident has no timestamp, but an incident history without one can't say which incidents are recent, and real postmortems are dated. `CLAUDE.md` requires relative times.

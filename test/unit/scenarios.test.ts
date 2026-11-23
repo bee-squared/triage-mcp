@@ -20,14 +20,13 @@ import unknownService from "../../fixtures/scenarios/unknown-service.json" with 
 };
 import { ConfigError } from "../../src/config.js";
 import { FixtureError, loadCatalog } from "../../src/domain/fixtures.js";
+import { errorBudgetPct, sloBreaches } from "../../src/domain/health.js";
 import {
 	buildScenarios,
-	errorBudgetPct,
 	loadActiveScenario,
 	loadScenario,
 	loadScenarios,
 	type RawScenarios,
-	sloBreaches,
 } from "../../src/domain/scenarios.js";
 import { SCENARIO_IDS, type ScenarioId } from "../../src/domain/schemas.js";
 
