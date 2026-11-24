@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Service, Severity } from "./schemas.js";
 
 // In-memory acknowledgements (PRD FR-16): they last as long as the store and
@@ -5,6 +6,16 @@ import type { Service, Severity } from "./schemas.js";
 // gets a fresh one and the HTTP transport shares one per process.
 
 export const MAX_ACK_SUMMARY_LENGTH = 200;
+
+/**
+ * The one summary rule, shared by the store and the `acknowledge_incident`
+ * input schema so they can't disagree: trimmed, then 1 to 200 characters.
+ */
+export const AckSummarySchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(MAX_ACK_SUMMARY_LENGTH);
 
 /** Oldest acknowledgements are dropped past this, so a long-lived process can't grow without bound. */
 export const MAX_STORED_ACKS = 1000;
@@ -40,8 +51,8 @@ export interface AcknowledgementStoreOptions {
 }
 
 /**
- * Callers validate the summary; one that is blank or over 200 characters
- * after trimming is a RangeError.
+ * Callers validate the summary with `AckSummarySchema` first, so bad input
+ * becomes a tool error. A summary that fails it here is a bug: RangeError.
  */
 export function createAcknowledgementStore({
 	now = () => new Date(),
@@ -50,12 +61,13 @@ export function createAcknowledgementStore({
 	let count = 0;
 	return {
 		acknowledge({ service, severity, summary }) {
-			const text = summary.trim();
-			if (text.length === 0 || text.length > MAX_ACK_SUMMARY_LENGTH) {
+			const parsed = AckSummarySchema.safeParse(summary);
+			if (!parsed.success) {
 				throw new RangeError(
-					`summary must be 1 to ${MAX_ACK_SUMMARY_LENGTH} characters, got ${text.length}`,
+					`summary must be 1 to ${MAX_ACK_SUMMARY_LENGTH} characters after trimming, got ${summary.trim().length}`,
 				);
 			}
+			const text = parsed.data;
 			count += 1;
 			const ack: Acknowledgement = Object.freeze({
 				confirmation_id: `ACK-${String(count).padStart(4, "0")}`,

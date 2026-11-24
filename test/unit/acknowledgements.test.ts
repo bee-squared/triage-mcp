@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	AckSummarySchema,
 	createAcknowledgementStore,
 	MAX_ACK_SUMMARY_LENGTH,
 	MAX_STORED_ACKS,
@@ -68,6 +69,28 @@ describe("createAcknowledgementStore", () => {
 			expect(store.list()).toEqual([]);
 		},
 	);
+
+	it.each([
+		"",
+		"   ",
+		"ok",
+		"  padded  ",
+		"x".repeat(MAX_ACK_SUMMARY_LENGTH),
+		` ${"x".repeat(MAX_ACK_SUMMARY_LENGTH)} `,
+		"x".repeat(MAX_ACK_SUMMARY_LENGTH + 1),
+	])("agrees with AckSummarySchema on %j", (summary) => {
+		const schema = AckSummarySchema.safeParse(summary);
+		const store = createAcknowledgementStore();
+		if (schema.success) {
+			expect(store.acknowledge({ ...input, summary }).summary).toBe(
+				schema.data,
+			);
+		} else {
+			expect(() => store.acknowledge({ ...input, summary })).toThrow(
+				RangeError,
+			);
+		}
+	});
 
 	it("returns records callers can't change", () => {
 		const store = createAcknowledgementStore();
