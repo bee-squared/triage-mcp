@@ -1,16 +1,11 @@
 import { closestMatches } from "./closest.js";
 import type { Catalog } from "./fixtures.js";
+import { normalize } from "./names.js";
 import type { Service } from "./schemas.js";
 
 export type ServiceLookup =
 	| { readonly found: true; readonly service: Service }
 	| { readonly found: false; readonly suggestions: readonly string[] };
-
-const normalize = (text: string): string =>
-	text
-		.trim()
-		.toLowerCase()
-		.replace(/[\s_-]+/g, "-");
 
 /**
  * Finds a service by exact ID or name, ignoring case and treating spaces,

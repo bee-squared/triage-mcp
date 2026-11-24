@@ -2,6 +2,22 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-23: Rank keyword search by field weight and term rarity, and number acknowledgements per store
+
+**Context:** The PRD asks for keyword search over incidents and runbooks but doesn't say how to rank results. S1 and S2 depend on the right record coming first: `checkout latency` must rank INC-0142 above the look-alike decoys (INC-0131, INC-0141), and RB-07 above RB-05. FR-16 asks for a confirmation ID without giving its format.
+
+**Decision:**
+
+- Search terms are lowercased words with stopwords removed, light suffix stripping (`deployed` matches `deploy`), and a short synonym table (`slow` and `p95` mean latency, `unauthorized` means 401, `502` means 5xx).
+- Each query term scores the weight of the most important field it appears in (incidents: title 3, symptoms and root-cause service 2, root-cause summary and affected services 1; runbooks: title 3, symptoms and services 2), times its rarity across the records searched. Ties go to the newer incident or the earlier runbook.
+- A query with only stopwords lists the given service's incidents newest first, or nothing if no service was given.
+- The domain returns every match; tools cap the list.
+- Confirmation IDs are `ACK-0001`, counting up per store, with an injectable clock. Each eval trial gets its own store, so IDs are predictable in traces. A store keeps the newest 1,000 acknowledgements.
+
+**Trade-off:** there is no negation, so "no recent deploy" still matches `deploy`. The synonym table is hand-tuned to the fixtures and must be kept small to stay explainable. `ACK-` IDs repeat across processes, but acknowledgements never outlive one.
+
+**Revisit when:** evals show the model's queries missing an incident it should find, or a decoy outranking the answer.
+
 ## 2026-11-22: List unhealthy dependencies first and suggest loose matches for names only
 
 **Context:** Lists cap at 5 by default, and a dependency walk can be longer. In S6, walking downstream from `core-db` by distance alone puts both failing services, `search-index` and `web-app`, after the cap. Separately, FR-14 asks for "up to 3 closest" matches without saying what to do when nothing is close.
