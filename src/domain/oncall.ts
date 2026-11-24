@@ -1,7 +1,7 @@
 import { closestMatches } from "./closest.js";
 import type { Catalog } from "./fixtures.js";
+import { normalize } from "./names.js";
 import type { OnCallShift, Service, Team } from "./schemas.js";
-import { normalize } from "./services.js";
 
 export type TeamLookup =
 	| { readonly found: true; readonly team: Team }
