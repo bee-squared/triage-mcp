@@ -2,6 +2,24 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-24: Set the tool pattern: SDK input validation, strict inputs, error kinds in `_meta`, and a `limit` on every list
+
+**Context:** PR 7 adds the first two tools, and the other six copy their pattern. FR-9 wants invalid input to name the field and the accepted values. The plan wants each error to carry a kind (`invalid_argument`, `not_found`, `empty`) so the argument-validity scorer can tell a bad call from an unlucky one. FR-13 wants lists capped with a way to narrow them, but the PRD gives `get_service_health` and `get_service_dependencies` no `limit` input.
+
+**Decision:**
+
+- Input validation stays with the SDK. It checks the Zod schema before the handler runs and answers with a tool error (`isError: true`, never a protocol error) whose text starts `Input validation error:` and lists each field with its message. Our schemas set those messages, so they name the accepted values (`depth must be a whole number from 1 to 3`).
+- Input schemas are `z.strictObject`, published with `additionalProperties: false`. With a plain object, a misspelled `service_id` is silently dropped, and `get_service_health` would answer for every unhealthy service instead of the one the model asked about.
+- Errors a handler returns carry `{ kind, suggestions }` under `_meta["triage-mcp/error"]`. Structured content can't hold it, because it must match the tool's output schema. The model reads only the text, and scorers read `_meta`; SDK validation errors have no `_meta` and count as `invalid_argument` by their text prefix.
+- Both tools take `limit` (default 5, max 20), from one shared schema that PRs 8 and 9 reuse. It is the only way to see past the cap: today no scenario has more than 4 unhealthy services, but a walk from `core-db` reaches 8.
+- `get_service_dependencies` splits each service's edges into `via` (from neighbours one hop nearer the start: the shortest paths) and `also_via` (the rest). One combined list read as if `checkout-api`, one hop from `core-db`, were reached through `auth`.
+- Concise `get_service_health` gives each service's status and only its breached SLOs, so a healthy service is one line with no numbers. `detailed` adds the rest of the record: owner, tier, description, both SLO checks, throughput and logs. Showing both SLO checks in concise would make it 62% of detailed (FR-15 allows 40%); this shape is 15% for the text and 30% for the whole result across all scenarios.
+- Server code may not call `console.log`; a Biome override on `src/**` enforces it (stdout is the stdio protocol channel).
+
+**Trade-off:** SDK validation messages are joined into one line and carry no suggestions. A handler-side parse could add them, but the published schema would then have to be looser than the real one.
+
+**Revisit when:** evals show the model repeating an invalid call after reading the SDK's message, or a client that rejects `_meta` on tool results.
+
 ## 2026-11-23: Rank keyword search by field weight and term rarity, and number acknowledgements per store
 
 **Context:** The PRD asks for keyword search over incidents and runbooks but doesn't say how to rank results. S1 and S2 depend on the right record coming first: `checkout latency` must rank INC-0142 above the look-alike decoys (INC-0131, INC-0141), and RB-07 above RB-05. FR-16 asks for a confirmation ID without giving its format.
