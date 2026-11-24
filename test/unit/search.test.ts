@@ -39,9 +39,27 @@ describe("searchTerms", () => {
 		expect(searchTerms("logs class bus")).toEqual(["log", "class", "bus"]);
 	});
 
-	it(`ignores query text past ${MAX_QUERY_LENGTH} characters`, () => {
-		const query = `${"a ".repeat(MAX_QUERY_LENGTH / 2)}checkout`;
-		expect(searchTerms(query)).toEqual([]);
+	it("splits pasted IDs into parts that match nothing on their own", () => {
+		// IDs go to `get_incident`; search is for symptoms.
+		expect(searchTerms("INC-0142")).toEqual(["inc", "0142"]);
+	});
+});
+
+describe("query length", () => {
+	const longest = `checkout ${"x".repeat(MAX_QUERY_LENGTH - 9)}`;
+	const tooLong = `${longest}x`;
+
+	it(`accepts exactly ${MAX_QUERY_LENGTH} characters`, () => {
+		expect(longest).toHaveLength(MAX_QUERY_LENGTH);
+		expect(searchIncidents(catalog, { query: longest })[0]).toBeDefined();
+		expect(searchRunbooks(catalog, longest)[0]).toBeDefined();
+	});
+
+	it("rejects longer input instead of cutting it", () => {
+		expect(() => searchIncidents(catalog, { query: tooLong })).toThrow(
+			RangeError,
+		);
+		expect(() => searchRunbooks(catalog, tooLong)).toThrow(RangeError);
 	});
 });
 
