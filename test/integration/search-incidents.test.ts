@@ -44,7 +44,9 @@ describe("search_incidents", () => {
 		expect(lines[1]).toBe(
 			"- INC-0142 (SEV2, 172 days ago): Checkout latency after payment-gateway deploy added a synchronous fraud check. Root cause: payment-gateway. Runbook RB-07.",
 		);
-		expect(lines.at(-1)).toMatch(/^Call get_incident/);
+		expect(lines.at(-1)).toMatch(
+			/^Call get_incident .*"response_format": "detailed".* resolution and postmortem\.$/,
+		);
 	});
 
 	it("caps at 5 by default and says how many more exist (FR-13)", async () => {

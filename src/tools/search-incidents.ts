@@ -141,7 +141,7 @@ export const searchIncidentsTool = defineTool({
 				capped,
 				"Raise `limit` (at most 20), add words to the query, or pass `service`.",
 			) +
-			"\nCall get_incident with an ID for its root cause, resolution and postmortem.";
+			'\nCall get_incident with an ID for its root cause and runbook, or add `"response_format": "detailed"` for its resolution and postmortem.';
 		return ok(text, {
 			query,
 			...(service ? { service_id: service.id } : {}),
