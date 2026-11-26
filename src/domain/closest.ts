@@ -21,7 +21,7 @@ const toWords = (text: string): string[] =>
 	text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 
 /** Edit distance, counting two swapped neighbours as one edit. */
-function editDistance(a: string, b: string): number {
+export function editDistance(a: string, b: string): number {
 	let beforePrevious: number[] = [];
 	let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
 	for (let i = 1; i <= a.length; i++) {
