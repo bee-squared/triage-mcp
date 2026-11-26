@@ -10,7 +10,7 @@ const ENTRY = "src/transports/stdio.ts";
 const baseEnv = { PATH: process.env.PATH ?? "" };
 
 describe("stdio entry point", () => {
-	it("serves tools for the configured scenario and logs only to stderr", async () => {
+	it("serves tools over the legacy handshake and logs only to stderr", async () => {
 		const transport = new StdioClientTransport({
 			command: TSX,
 			args: [ENTRY],
@@ -35,6 +35,33 @@ describe("stdio entry point", () => {
 			await client.close();
 		}
 		expect(stderr).toMatch(/serving scenario "false-alarm" over stdio/);
+	});
+
+	it("negotiates MCP 2026-07-28 when the client pins it", async () => {
+		const transport = new StdioClientTransport({
+			command: TSX,
+			args: [ENTRY],
+			env: { ...baseEnv, SCENARIO: "false-alarm" },
+			stderr: "pipe",
+		});
+		const client = new Client(
+			{ name: "stdio-test", version: "0.0.0" },
+			{ versionNegotiation: { mode: { pin: "2026-07-28" } } },
+		);
+		try {
+			await client.connect(transport);
+			expect(client.getProtocolEra()).toBe("modern");
+			expect(client.getNegotiatedProtocolVersion()).toBe("2026-07-28");
+			const result = await client.callTool({
+				name: "get_service_health",
+				arguments: {},
+			});
+			expect(result.structuredContent).toMatchObject({
+				scenario_id: "false-alarm",
+			});
+		} finally {
+			await client.close();
+		}
 	});
 
 	it("refuses to start with an unknown scenario, writing nothing to stdout", () => {
