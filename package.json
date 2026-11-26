@@ -35,6 +35,8 @@
 		"lint": "biome ci .",
 		"typecheck": "tsc --noEmit",
 		"build": "tsc -p tsconfig.build.json",
+		"dev": "tsx src/transports/stdio.ts",
+		"inspect": "pnpm dlx @modelcontextprotocol/inspector@2.16.0 tsx src/transports/stdio.ts",
 		"test": "vitest run --passWithNoTests",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",

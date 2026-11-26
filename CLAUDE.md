@@ -7,12 +7,12 @@ MCP server that lets an AI assistant triage outages for "Fernhill", a fictional 
 - `pnpm check` - Biome format + lint with fixes
 - `pnpm typecheck` - `tsc --noEmit`
 - `pnpm test` - unit + integration tests (no API key needed, must stay under 30s)
+- `pnpm dev` - run the stdio server with tsx (SCENARIO defaults to `checkout-latency`)
+- `pnpm inspect` - open MCP Inspector (pinned 2.16.0, via `pnpm dlx`) against the stdio server
 
 Planned, not in `package.json` until their entry points exist:
 
-- `pnpm dev` - run the stdio server with tsx (SCENARIO defaults to `checkout-latency`)
 - `pnpm dev:http` - run the HTTP server (`tsx src/transports/http.ts`); add when that entry point exists
-- `pnpm inspect` - open MCP Inspector against the stdio server
 - `pnpm triage "<question>"` - run the CLI agent (needs ANTHROPIC_API_KEY, costs money)
 - `pnpm eval` - run the eval suite (needs ANTHROPIC_API_KEY, costs money; ask first)
 - `pnpm eval:ui` - run the eval suite in watch mode with its UI (`evalite watch`); add when `evals/` exists
@@ -24,7 +24,7 @@ Before calling a task done: `pnpm check && pnpm typecheck && pnpm test`.
 - `fixtures/base/` - services, dependency edges, teams, on-call, incidents, runbooks (JSON)
 - `fixtures/scenarios/` - per-scenario signals and deploys layered over base
 - `src/domain/` - pure query functions over fixtures. No MCP imports here.
-- `src/tools/` - one file per MCP tool; maps domain results to text + structured content
+- `src/tools/` - one file per MCP tool; maps domain results to text + structured content. Files prefixed `_` (e.g. `_shared.ts`) are shared helpers, not tools.
 - `src/resources/`, `src/prompts/` - runbook/catalog resources, `triage_outage` prompt
 - `src/server.ts` - server factory shared by both transports
 - `src/transports/stdio.ts`, `src/transports/http.ts` - entry points

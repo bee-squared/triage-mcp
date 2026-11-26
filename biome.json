@@ -31,5 +31,20 @@
 				"organizeImports": "on"
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["src/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": {
+							"level": "error",
+							"options": { "allow": ["error", "warn"] }
+						}
+					}
+				}
+			}
+		}
+	]
 }
