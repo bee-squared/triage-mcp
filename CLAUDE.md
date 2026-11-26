@@ -24,7 +24,7 @@ Before calling a task done: `pnpm check && pnpm typecheck && pnpm test`.
 - `fixtures/base/` - services, dependency edges, teams, on-call, incidents, runbooks (JSON)
 - `fixtures/scenarios/` - per-scenario signals and deploys layered over base
 - `src/domain/` - pure query functions over fixtures. No MCP imports here.
-- `src/tools/` - one file per MCP tool; maps domain results to text + structured content
+- `src/tools/` - one file per MCP tool; maps domain results to text + structured content. Files prefixed `_` (e.g. `_shared.ts`) are shared helpers, not tools.
 - `src/resources/`, `src/prompts/` - runbook/catalog resources, `triage_outage` prompt
 - `src/server.ts` - server factory shared by both transports
 - `src/transports/stdio.ts`, `src/transports/http.ts` - entry points
