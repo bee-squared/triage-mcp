@@ -90,17 +90,18 @@ export function registerRunbookResources(
 		},
 		(uri, variables) => {
 			const raw = variables.runbook_id;
-			const requested = decodeURIComponent(
-				(Array.isArray(raw) ? raw[0] : raw) ?? "",
-			);
-			// One URI per runbook: only the canonical ID resolves, so a client
-			// can't cache the same runbook under two addresses. Near misses get
-			// the same digit-typo suggestions as `find_runbook`.
-			const runbook = runbooks.find((r) => r.id === requested);
+			const asWritten = (Array.isArray(raw) ? raw[0] : raw) ?? "";
+			const requested = decodeURIComponent(asWritten);
+			// One URI per runbook: only the canonical URI resolves, so a client
+			// can't cache the same runbook under two addresses. Comparing the
+			// whole URI, not the decoded ID, also rejects encoded aliases such
+			// as `runbook://RB%2D07`. Near misses get the same digit-typo
+			// suggestions as `find_runbook`.
+			const runbook = runbooks.find((r) => runbookUri(r.id) === uri.href);
 			if (!runbook) {
 				throw new ResourceNotFoundError(
 					uri.href,
-					notFoundMessage(requested, catalog),
+					notFoundMessage(requested, asWritten, catalog),
 				);
 			}
 			return {
@@ -116,11 +117,19 @@ export function registerRunbookResources(
 	);
 }
 
-function notFoundMessage(requested: string, catalog: Catalog): string {
+/**
+ * `requested` is the decoded ID, used for the lookup. `asWritten` is the ID
+ * as it appeared in the URI, quoted back so an encoded alias reads as itself.
+ */
+function notFoundMessage(
+	requested: string,
+	asWritten: string,
+	catalog: Catalog,
+): string {
 	const lookup = findById(RUNBOOK_ID, catalog.runbooks, requested);
 	switch (lookup.status) {
 		case "found":
-			return `No runbook "${requested}". Use the canonical URI ${runbookUri(lookup.record.id)}.`;
+			return `No runbook "${asWritten}". Use the canonical URI ${runbookUri(lookup.record.id)}.`;
 		case "not_found":
 			return lookup.suggestions.length > 0
 				? `No runbook ${lookup.id}. Did you mean ${lookup.suggestions.map(runbookUri).join(", ")}?`

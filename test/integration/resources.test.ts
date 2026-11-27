@@ -174,6 +174,15 @@ describe("runbook://{runbook_id} (FR-18)", () => {
 		expect(error.message).toMatch(/Use the canonical URI runbook:\/\/RB-07/);
 	});
 
+	it.each(["runbook://RB%2D07", "runbook://%52B-07"])(
+		"rejects the percent-encoded alias %s",
+		async (uri) => {
+			const error = await readError(uri);
+			expect(error.data).toEqual({ uri });
+			expect(error.message).toMatch(/Use the canonical URI runbook:\/\/RB-07/);
+		},
+	);
+
 	it("explains what a runbook URI looks like for garbage input", async () => {
 		const error = await readError("runbook://checkout");
 		expect(error.message).toMatch(/not a runbook ID.*runbook:\/\/RB-07/);
