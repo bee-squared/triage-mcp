@@ -2,6 +2,24 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-27: Shape the runbook, on-call and acknowledgement tools, and reword RB-05
+
+**Context:** PR 9 adds the last three MVP tools: `find_runbook`, `get_oncall` and `acknowledge_incident`. The PRD gives them no `response_format` and no `limit`. It doesn't say what a symptom search returns, and doesn't say how to annotate the write tool beyond "non-read-only and non-idempotent". While building `find_runbook`, `checkout latency`, the most likely S1 query, ranked RB-05 (checkout error rate) above RB-07 (payment-gateway latency).
+
+**Decision:**
+
+- A `find_runbook` symptom search returns the best match in full plus the next-best matches as ID, title and services, capped by `limit` (default 5, max 20) with the usual "N more not shown" line. The model gets the steps in one call and can still choose a different runbook.
+- `find_runbook` has no `response_format`. Every part of a runbook is a step the on-call may need, and a concise form small enough for FR-15's 40% would drop the diagnostic or rollback steps. `get_oncall` and `acknowledge_incident` return a few short fields, so a concise form would be the same.
+- Exactly-one inputs (`runbook_id` or `symptom`, `team` or `service`) are checked in the handler as `invalid_argument`, per the plan. A symptom that is only a runbook ID, a service passed as `team`, and a team passed as `service` each get a message naming the call to make instead.
+- Runbook IDs reuse `findById(RUNBOOK_ID, ...)`. With 12 two-digit IDs, every well-formed ID is one digit away from a real one, so a missing runbook always has a suggestion. The message also offers `symptom` search.
+- `acknowledge_incident` is annotated `readOnlyHint: false`, `idempotentHint: false`, `destructiveHint: false` (it only adds a record) and `openWorldHint: false`. Its input reuses `AckSummarySchema`, which now carries field messages, so the store and the schema can't disagree and a bad summary never reaches the store's RangeError. Severity is the strict `SEV1` to `SEV4` enum, so `sev2` is a validation error that lists the accepted values. The result adds the owning `team_id` (FR-17).
+- RB-05's symptom "Errors without a matching rise in latency" is now "Errors while response times stay normal". Search has no negation (2026-11-23), so the old wording matched `latency`. Since `checkout` is the rarer word, RB-05 won. With the new wording, `checkout latency` and `checkout is slow` rank RB-07 first, and `checkout errors` still ranks RB-05 first. No answer key exists yet, so no eval score moved.
+- One server test now covers all 8 tools: exactly 8, read-only annotations except the write tool, "Use when", "Do not use for" and a runnable example in every description, and p95 under 50 ms over 40 calls of each example. The FR-15 test measures every tool with a `response_format` across every scenario, using chars/4 as the token proxy. It fails if a new tool takes `response_format` but has no reference calls.
+
+**Trade-off:** returning the whole best-match runbook costs 800 to 1,200 characters even when the model picks another one. The wording fix tunes data to the search instead of adding negation, so other "without X" phrasings can still mislead. The p95 test measures the in-memory transport, not HTTP.
+
+**Revisit when:** evals show the model reading the wrong runbook after a symptom search, or a fixture needs negation to rank correctly.
+
 ## 2026-11-26: Match record IDs by their number, and shape the deploy and incident tools
 
 **Context:** PR 8 adds `list_recent_deploys`, `search_incidents` and `get_incident`. The 2026-11-22 entry left IDs needing their own "did you mean" rule, because name matching treats the shared `INC-` prefix as a match. The PRD gives `list_recent_deploys` and `search_incidents` no `response_format`, gives `list_recent_deploys` no `limit`, and says an empty search returns "a message with a suggestion to broaden".
