@@ -113,7 +113,7 @@
 		"symptoms": [
 			"checkout-api 5xx rate above 1%",
 			"Customers see \"something went wrong\" at checkout",
-			"Errors without a matching rise in latency"
+			"Errors while response times stay normal"
 		],
 		"applies_to_service_ids": ["checkout-api"],
 		"diagnostic_steps": [

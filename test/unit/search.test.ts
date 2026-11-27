@@ -136,6 +136,9 @@ describe("searchIncidents", () => {
 describe("searchRunbooks", () => {
 	it.each([
 		["checkout latency high after deploy", "RB-07"],
+		// RB-05 once said "without a matching rise in latency", which matched.
+		["checkout latency", "RB-07"],
+		["checkout is slow", "RB-07"],
 		["401 spike from auth", "RB-03"],
 		["search index slow", "RB-10"],
 		["queue backlog", "RB-08"],
