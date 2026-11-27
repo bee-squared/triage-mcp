@@ -2,6 +2,25 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-26: Match record IDs by their number, and shape the deploy and incident tools
+
+**Context:** PR 8 adds `list_recent_deploys`, `search_incidents` and `get_incident`. The 2026-11-22 entry left IDs needing their own "did you mean" rule, because name matching treats the shared `INC-` prefix as a match. The PRD gives `list_recent_deploys` and `search_incidents` no `response_format`, gives `list_recent_deploys` no `limit`, and says an empty search returns "a message with a suggestion to broaden".
+
+**Decision:**
+
+- `src/domain/ids.ts` parses IDs forgivingly: case, separators and zero padding don't matter, and a bare number is accepted (`inc 142`, `INC0142`, `INC-142` and `142` all read as `INC-0142`). Each tool already says which kind of ID it takes, so a bare number can't be ambiguous.
+- A missing ID gets suggestions only when they are one digit typo away (one changed digit, or two neighbouring digits swapped), nearest number first, at most 3. `INC-0143` suggests `INC-0142`, `INC-0144` and `INC-0141`. `INC-9999` gets none, so the message points to `search_incidents` instead. PR 9 reuses this for runbook IDs (`RUNBOOK_ID` is already defined).
+- Input that isn't an incident ID at all (`RB-07`, a sentence) is `invalid_argument`. A well-formed ID that doesn't exist is `not_found`.
+- `get_incident` input is a plain string capped at 20 characters, not the fixture regex, so a near-miss spelling gets parsed or a helpful message instead of a bare SDK validation error.
+- Concise `get_incident` gives the root cause and runbook. Symptoms, resolution and postmortem come with `detailed`. Across all 30 incidents, concise is 33% of detailed (FR-15 allows 40%).
+- `search_incidents` and `list_recent_deploys` take no `response_format`: they return summaries, and FR-15 asks it only of tools that return entity details. Both take `limit`, like every list tool.
+- An empty search is a tool error of kind `empty` (as the plan intended), with a next step that depends on whether `service` was passed. No deploys in the window is a normal result, not an error. In S2 "nothing shipped to auth" is evidence the model should use, not a failed call.
+- A `search_incidents` query that is only an incident ID (`INC-0142`) is `invalid_argument` with a message that names the `get_incident` call to make. Search would split it into `inc` and `0142`, which match nothing. A bare number like `503` is still a keyword.
+
+**Trade-off:** suggestions for a typo can point at an unrelated incident. They are hints the model must check, and the eval's hallucinated-ID scorer only checks that suggested IDs exist. Moving the resolution to `detailed` means the model needs a second call to see how INC-0142 was fixed, though RB-07 also has the rollback steps.
+
+**Revisit when:** evals show the model stopping at concise `get_incident` without learning the fix, or repeating a pasted ID in `search_incidents` after the error.
+
 ## 2026-11-24: Set the tool pattern: SDK input validation, strict inputs, error kinds in `_meta`, and a `limit` on every list
 
 **Context:** PR 7 adds the first two tools, and the other six copy their pattern. FR-9 wants invalid input to name the field and the accepted values. The plan wants each error to carry a kind (`invalid_argument`, `not_found`, `empty`) so the argument-validity scorer can tell a bad call from an unlucky one. FR-13 wants lists capped with a way to narrow them, but the PRD gives `get_service_health` and `get_service_dependencies` no `limit` input.

@@ -5,8 +5,11 @@ import { loadCatalog } from "./domain/fixtures.js";
 import { loadScenario } from "./domain/scenarios.js";
 import type { ScenarioId } from "./domain/schemas.js";
 import { registerTool, type ToolContext } from "./tools/_shared.js";
+import { getIncidentTool } from "./tools/get-incident.js";
 import { getServiceDependenciesTool } from "./tools/get-service-dependencies.js";
 import { getServiceHealthTool } from "./tools/get-service-health.js";
+import { listRecentDeploysTool } from "./tools/list-recent-deploys.js";
+import { searchIncidentsTool } from "./tools/search-incidents.js";
 
 // The one server factory, shared by the stdio and HTTP transports, the agent
 // and the tests. It reads no environment variables: callers pass the scenario
@@ -45,5 +48,8 @@ export function createServer({
 	);
 	registerTool(server, getServiceHealthTool, context);
 	registerTool(server, getServiceDependenciesTool, context);
+	registerTool(server, listRecentDeploysTool, context);
+	registerTool(server, searchIncidentsTool, context);
+	registerTool(server, getIncidentTool, context);
 	return server;
 }

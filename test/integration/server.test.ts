@@ -26,49 +26,66 @@ describe("server", () => {
 
 	it("lists the tools built so far", () => {
 		expect(tools.map((t) => t.name).sort()).toEqual([
+			"get_incident",
 			"get_service_dependencies",
 			"get_service_health",
+			"list_recent_deploys",
+			"search_incidents",
 		]);
 	});
 });
 
-describe.each(["get_service_health", "get_service_dependencies"])(
-	"%s follows the tool rules",
-	(name) => {
-		const tool = () => {
-			const found = tools.find((t) => t.name === name);
-			if (!found) throw new Error(`no tool ${name}`);
-			return found;
-		};
+/** Tools that return a list, so must take a `limit` (FR-13). */
+const LIST_TOOLS = new Set([
+	"get_service_health",
+	"get_service_dependencies",
+	"list_recent_deploys",
+	"search_incidents",
+]);
 
-		it("says when to use it, when not to, and gives a valid example (FR-11)", async () => {
-			const { description = "" } = tool();
-			expect(description).toMatch(/Use when:/);
-			expect(description).toMatch(/Do not use for:/);
-			const example = description.match(/Example input: (\{.*\})/)?.[1];
-			expect(example).toBeDefined();
-			const result = await h.call(name, JSON.parse(example ?? "{}"));
-			expect(result.isError).toBeFalsy();
+describe.each([
+	"get_service_health",
+	"get_service_dependencies",
+	"list_recent_deploys",
+	"search_incidents",
+	"get_incident",
+])("%s follows the tool rules", (name) => {
+	const tool = () => {
+		const found = tools.find((t) => t.name === name);
+		if (!found) throw new Error(`no tool ${name}`);
+		return found;
+	};
+
+	it("says when to use it, when not to, and gives a valid example (FR-11)", async () => {
+		const { description = "" } = tool();
+		expect(description).toMatch(/Use when:/);
+		expect(description).toMatch(/Do not use for:/);
+		const example = description.match(/Example input: (\{.*\})/)?.[1];
+		expect(example).toBeDefined();
+		const result = await h.call(name, JSON.parse(example ?? "{}"));
+		expect(result.isError).toBeFalsy();
+	});
+
+	it("is annotated read-only (FR-10)", () => {
+		expect(tool().annotations).toMatchObject({
+			readOnlyHint: true,
+			destructiveHint: false,
 		});
+	});
 
-		it("is annotated read-only (FR-10)", () => {
-			expect(tool().annotations).toMatchObject({
-				readOnlyHint: true,
-				destructiveHint: false,
-			});
-		});
+	it("declares an output schema and rejects unknown arguments (FR-12)", () => {
+		expect(tool().outputSchema).toMatchObject({ type: "object" });
+		expect(tool().inputSchema).toMatchObject({ additionalProperties: false });
+	});
 
-		it("declares an output schema and rejects unknown arguments (FR-12)", () => {
-			expect(tool().outputSchema).toMatchObject({ type: "object" });
-			expect(tool().inputSchema).toMatchObject({ additionalProperties: false });
-		});
-
-		it("takes a limit, since it returns a list (FR-13)", () => {
+	it.runIf(LIST_TOOLS.has(name))(
+		"takes a limit, since it returns a list (FR-13)",
+		() => {
 			const props = Object.keys(tool().inputSchema.properties ?? {});
 			expect(props).toContain("limit");
-		});
-	},
-);
+		},
+	);
+});
 
 describe("invalid input is a tool error, not a protocol error (FR-9)", () => {
 	it.each([
@@ -119,6 +136,24 @@ describe("invalid input is a tool error, not a protocol error (FR-9)", () => {
 			"get_service_health",
 			{ response_format: "verbose" },
 			/response_format must be one of: concise, detailed/,
+		],
+		[
+			"a deploy window over the max",
+			"list_recent_deploys",
+			{ within_minutes: 1441 },
+			/within_minutes must be a whole number from 1 to 1440/,
+		],
+		[
+			"a query over the max length",
+			"search_incidents",
+			{ query: "x".repeat(301) },
+			/query must be at most 300 characters/,
+		],
+		[
+			"a missing query",
+			"search_incidents",
+			{ service: "auth" },
+			/query must be a string/,
 		],
 	])("rejects %s", async (_, name, args, message) => {
 		const result = await h.call(name, args);
