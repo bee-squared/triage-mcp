@@ -4,6 +4,9 @@ import type { AcknowledgementStore } from "./domain/acknowledgements.js";
 import { loadCatalog } from "./domain/fixtures.js";
 import { loadScenario } from "./domain/scenarios.js";
 import type { ScenarioId } from "./domain/schemas.js";
+import { registerTriagePrompt } from "./prompts/triage-outage.js";
+import { registerCatalogResource } from "./resources/catalog.js";
+import { registerRunbookResources } from "./resources/runbook.js";
 import { registerTool, type ToolContext } from "./tools/_shared.js";
 import { acknowledgeIncidentTool } from "./tools/acknowledge-incident.js";
 import { findRunbookTool } from "./tools/find-runbook.js";
@@ -57,5 +60,8 @@ export function createServer({
 	registerTool(server, findRunbookTool, context);
 	registerTool(server, getOnCallTool, context);
 	registerTool(server, acknowledgeIncidentTool, context);
+	registerCatalogResource(server, context.catalog);
+	registerRunbookResources(server, context.catalog);
+	registerTriagePrompt(server);
 	return server;
 }
