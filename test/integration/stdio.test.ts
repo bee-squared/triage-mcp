@@ -59,6 +59,13 @@ describe("stdio entry point", () => {
 			expect(result.structuredContent).toMatchObject({
 				scenario_id: "false-alarm",
 			});
+			const runbook = await client.readResource({ uri: "runbook://RB-07" });
+			expect(runbook.contents[0]).toMatchObject({ mimeType: "text/markdown" });
+			const prompt = await client.getPrompt({
+				name: "triage_outage",
+				arguments: { symptom: "Checkout is slow" },
+			});
+			expect(prompt.messages).toHaveLength(1);
 		} finally {
 			await client.close();
 		}
