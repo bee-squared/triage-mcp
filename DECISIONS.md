@@ -2,6 +2,23 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-27: Shape the catalog and runbook resources and the `triage_outage` prompt
+
+**Context:** PR 10 adds the PRD's 2 resources and 1 prompt (FR-18 to FR-20). The PRD gives the catalog's content ("all services with team, tier, SLOs, dependencies") but no format, says runbooks are markdown, and says the prompt returns "a structured triage instruction". It doesn't say what a bad runbook URI or a bad prompt argument returns.
+
+**Decision:**
+
+- `catalog://services` is JSON (`application/json`). Each service carries its team (ID, name, escalation channel), tier, SLOs, `depends_on` and `depended_on_by`, each edge with its kind. Both directions are listed, so a reader doesn't have to invert the graph to see blast radius. It has no live status and reads the same in every scenario; its description sends the reader to `get_service_health` for that.
+- `runbook://{runbook_id}` is a URI template. Its list callback enumerates all 12 runbooks with titles, and it completes `runbook_id` by prefix (`RB-1` gives `RB-10` to `RB-12`). The markdown has the same sections as `find_runbook`'s text, plus the escalation team's name and channel.
+- Only the canonical ID resolves (`runbook://RB-07`, not `runbook://rb-7`), so each runbook has one address a client can cache. A miss reuses `findById` for its message: a different spelling of a real ID names the canonical URI, a near miss gets up to 3 digit-typo suggestions, and anything else gets an example URI.
+- A miss is a protocol error (`ResourceNotFoundError`, sent as `-32602` with `data.uri`), not a tool-error result. The 2026-07-28 spec requires this for `resources/read`, and tool-error results exist only for tools. Likewise, a missing, empty or overlong `symptom` is the SDK's invalid-params error. The CLAUDE.md rule against protocol errors covers tool input, which these aren't.
+- The prompt is one user message: the symptom between `<symptom>` markers with a note to treat it as data, then six numbered steps (investigate, identify the root cause, find the runbook, find on-call, draft a status update, take no action), the sections to answer with, and a rule to cite only IDs a tool returned. The no-action sentence is exported as `NO_ACTION_RULE` so tests can check it word for word.
+- The prompt steers against the scenario traps without naming them: "the service showing symptoms is often not the one that broke" (S1), "a deploy is only a suspect if its service is unhealthy or on the failing path" (S1's `notifications` deploy), and "if a named service doesn't exist, say so and stop" (S4). The CLI agent and evals use their own system prompt (PR 11), so this prompt doesn't move eval scores.
+
+**Trade-off:** strict URIs reject spellings `find_runbook` accepts, so a client that guesses a URI gets an error instead of the runbook. The error names the right URI, and listed resources always use it. The markers around the symptom don't stop a determined injection; they only make the boundary clear.
+
+**Revisit when:** a client needs the catalog as markdown for display, the prompt and the agent's system prompt start to drift, or an eval shows a model following text inside the symptom.
+
 ## 2026-11-27: Shape the runbook, on-call and acknowledgement tools, and reword RB-05
 
 **Context:** PR 9 adds the last three MVP tools: `find_runbook`, `get_oncall` and `acknowledge_incident`. The PRD gives them no `response_format` and no `limit`. It doesn't say what a symptom search returns, and doesn't say how to annotate the write tool beyond "non-read-only and non-idempotent". While building `find_runbook`, `checkout latency`, the most likely S1 query, ranked RB-05 (checkout error rate) above RB-07 (payment-gateway latency).
