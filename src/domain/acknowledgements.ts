@@ -12,10 +12,12 @@ export const MAX_ACK_SUMMARY_LENGTH = 200;
  * input schema so they can't disagree: trimmed, then 1 to 200 characters.
  */
 export const AckSummarySchema = z
-	.string()
+	.string({ error: "summary must be a string" })
 	.trim()
-	.min(1)
-	.max(MAX_ACK_SUMMARY_LENGTH);
+	.min(1, { error: "summary must not be empty" })
+	.max(MAX_ACK_SUMMARY_LENGTH, {
+		error: `summary must be at most ${MAX_ACK_SUMMARY_LENGTH} characters`,
+	});
 
 /** Oldest acknowledgements are dropped past this, so a long-lived process can't grow without bound. */
 export const MAX_STORED_ACKS = 1000;

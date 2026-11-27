@@ -1,10 +1,12 @@
 import type { Tool } from "@modelcontextprotocol/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import packageJson from "../../package.json" with { type: "json" };
+import { loadCatalog } from "../../src/domain/fixtures.js";
+import { SCENARIO_IDS } from "../../src/domain/schemas.js";
 import { SERVER_NAME } from "../../src/server.js";
 import { connect, errorMeta, type Harness, textOf } from "./harness.js";
 
-// The tool pattern every tool follows. PR 9 tightens the count to exactly 8.
+// The rules every tool follows, checked over the live tool list.
 
 let h: Harness;
 let tools: Tool[];
@@ -24,16 +26,24 @@ describe("server", () => {
 		expect(h.client.getInstructions()).toMatch(/explicitly asks/);
 	});
 
-	it("lists the tools built so far", () => {
-		expect(tools.map((t) => t.name).sort()).toEqual([
-			"get_incident",
-			"get_service_dependencies",
-			"get_service_health",
-			"list_recent_deploys",
-			"search_incidents",
-		]);
+	it("lists exactly the 8 MVP tools (FR-8)", () => {
+		expect(tools.map((t) => t.name).sort()).toEqual([...ALL_TOOLS].sort());
 	});
 });
+
+const ALL_TOOLS = [
+	"get_service_health",
+	"get_service_dependencies",
+	"list_recent_deploys",
+	"search_incidents",
+	"get_incident",
+	"find_runbook",
+	"get_oncall",
+	"acknowledge_incident",
+] as const;
+
+/** The one tool that changes state (FR-10). */
+const WRITE_TOOL = "acknowledge_incident";
 
 /** Tools that return a list, so must take a `limit` (FR-13). */
 const LIST_TOOLS = new Set([
@@ -41,15 +51,10 @@ const LIST_TOOLS = new Set([
 	"get_service_dependencies",
 	"list_recent_deploys",
 	"search_incidents",
+	"find_runbook",
 ]);
 
-describe.each([
-	"get_service_health",
-	"get_service_dependencies",
-	"list_recent_deploys",
-	"search_incidents",
-	"get_incident",
-])("%s follows the tool rules", (name) => {
+describe.each(ALL_TOOLS)("%s follows the tool rules", (name) => {
 	const tool = () => {
 		const found = tools.find((t) => t.name === name);
 		if (!found) throw new Error(`no tool ${name}`);
@@ -66,12 +71,24 @@ describe.each([
 		expect(result.isError).toBeFalsy();
 	});
 
-	it("is annotated read-only (FR-10)", () => {
+	it.runIf(name !== WRITE_TOOL)("is annotated read-only (FR-10)", () => {
 		expect(tool().annotations).toMatchObject({
 			readOnlyHint: true,
 			destructiveHint: false,
 		});
 	});
+
+	it.runIf(name === WRITE_TOOL)(
+		"is annotated as a non-idempotent write (FR-10)",
+		() => {
+			expect(tool().annotations).toEqual({
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false,
+			});
+		},
+	);
 
 	it("declares an output schema and rejects unknown arguments (FR-12)", () => {
 		expect(tool().outputSchema).toMatchObject({ type: "object" });
@@ -166,5 +183,77 @@ describe("invalid input is a tool error, not a protocol error (FR-9)", () => {
 		const result = await h.call("get_service_health", { service: "nope" });
 		expect(result.isError).toBe(true);
 		expect(errorMeta(result)?.kind).toBe("not_found");
+	});
+});
+
+/**
+ * Reference calls for every tool with a `response_format`, each made in both
+ * formats. A new tool that takes `response_format` fails the first test
+ * until it has an entry here.
+ */
+function referenceCalls(): Record<string, Record<string, unknown>[]> {
+	const catalog = loadCatalog();
+	return {
+		get_service_health: [
+			{},
+			...catalog.services.map((s) => ({ service: s.id })),
+		],
+		get_incident: catalog.incidents.map((i) => ({ incident_id: i.id })),
+	};
+}
+
+describe("concise output is at most 40% of detailed (FR-15)", () => {
+	it("has reference calls for every tool with a response_format", () => {
+		const withFormat = tools
+			.filter((t) => "response_format" in (t.inputSchema.properties ?? {}))
+			.map((t) => t.name)
+			.sort();
+		expect(withFormat).toEqual(Object.keys(referenceCalls()).sort());
+	});
+
+	/** Tokens estimated as characters / 4; the ratio is the same either way. */
+	const tokens = (value: unknown) => JSON.stringify(value).length / 4;
+
+	it.each(Object.entries(referenceCalls()))(
+		"%s, across every scenario",
+		async (name, calls) => {
+			const total = { concise: 0, detailed: 0 };
+			for (const scenario of SCENARIO_IDS) {
+				const s = await connect({ scenario });
+				for (const args of calls) {
+					for (const format of ["concise", "detailed"] as const) {
+						const result = await s.call(name, {
+							...args,
+							response_format: format,
+						});
+						expect(result.isError, JSON.stringify(args)).toBeFalsy();
+						total[format] += tokens(result);
+					}
+				}
+				await s.close();
+			}
+			expect(total.concise / total.detailed).toBeLessThanOrEqual(0.4);
+		},
+	);
+});
+
+describe("every tool answers in under 50 ms at p95 (NFR)", () => {
+	const RUNS = 40;
+
+	it.each(ALL_TOOLS)("%s, with its example input", async (name) => {
+		const description = tools.find((t) => t.name === name)?.description;
+		const example = JSON.parse(
+			description?.match(/Example input: (\{.*\})/)?.[1] ?? "{}",
+		);
+		await h.call(name, example); // warm up
+		const times: number[] = [];
+		for (let i = 0; i < RUNS; i++) {
+			const start = performance.now();
+			await h.call(name, example);
+			times.push(performance.now() - start);
+		}
+		times.sort((a, b) => a - b);
+		const p95 = times[Math.ceil(RUNS * 0.95) - 1] ?? Number.POSITIVE_INFINITY;
+		expect(p95).toBeLessThan(50);
 	});
 });

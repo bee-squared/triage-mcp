@@ -5,7 +5,10 @@ import { loadCatalog } from "./domain/fixtures.js";
 import { loadScenario } from "./domain/scenarios.js";
 import type { ScenarioId } from "./domain/schemas.js";
 import { registerTool, type ToolContext } from "./tools/_shared.js";
+import { acknowledgeIncidentTool } from "./tools/acknowledge-incident.js";
+import { findRunbookTool } from "./tools/find-runbook.js";
 import { getIncidentTool } from "./tools/get-incident.js";
+import { getOnCallTool } from "./tools/get-oncall.js";
 import { getServiceDependenciesTool } from "./tools/get-service-dependencies.js";
 import { getServiceHealthTool } from "./tools/get-service-health.js";
 import { listRecentDeploysTool } from "./tools/list-recent-deploys.js";
@@ -51,5 +54,8 @@ export function createServer({
 	registerTool(server, listRecentDeploysTool, context);
 	registerTool(server, searchIncidentsTool, context);
 	registerTool(server, getIncidentTool, context);
+	registerTool(server, findRunbookTool, context);
+	registerTool(server, getOnCallTool, context);
+	registerTool(server, acknowledgeIncidentTool, context);
 	return server;
 }
