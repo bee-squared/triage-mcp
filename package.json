@@ -37,6 +37,7 @@
 		"build": "tsc -p tsconfig.build.json",
 		"dev": "tsx src/transports/stdio.ts",
 		"inspect": "pnpm dlx @modelcontextprotocol/inspector@2.16.0 tsx src/transports/stdio.ts",
+		"triage": "tsx src/cli/triage.ts",
 		"test": "vitest run --passWithNoTests",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
