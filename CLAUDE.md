@@ -9,11 +9,11 @@ MCP server that lets an AI assistant triage outages for "Fernhill", a fictional 
 - `pnpm test` - unit + integration tests (no API key needed, must stay under 30s)
 - `pnpm dev` - run the stdio server with tsx (SCENARIO defaults to `checkout-latency`)
 - `pnpm inspect` - open MCP Inspector (pinned 2.16.0, via `pnpm dlx`) against the stdio server
+- `pnpm triage "<question>"` - run the CLI agent (`--model`, `--scenario`, `--help`; needs ANTHROPIC_API_KEY, costs money; traces go to `.traces/`)
 
 Planned, not in `package.json` until their entry points exist:
 
 - `pnpm dev:http` - run the HTTP server (`tsx src/transports/http.ts`); add when that entry point exists
-- `pnpm triage "<question>"` - run the CLI agent (needs ANTHROPIC_API_KEY, costs money)
 - `pnpm eval` - run the eval suite (needs ANTHROPIC_API_KEY, costs money; ask first)
 - `pnpm eval:ui` - run the eval suite in watch mode with its UI (`evalite watch`); add when `evals/` exists
 
@@ -28,7 +28,8 @@ Before calling a task done: `pnpm check && pnpm typecheck && pnpm test`.
 - `src/resources/`, `src/prompts/` - runbook/catalog resources, `triage_outage` prompt
 - `src/server.ts` - server factory shared by both transports
 - `src/transports/stdio.ts`, `src/transports/http.ts` - entry points
-- `src/agent/` - the agent loop (shared by the CLI and evals; never fork it)
+- `src/agent/` - the agent loop, MCP bridge, system prompt, traces and pricing (shared by the CLI and evals; never fork it)
+- `src/cli/` - the `pnpm triage` CLI (`triage-cli.ts` holds the logic, `triage.ts` is the entry point)
 - `evals/` - cases with answer keys, scorers, `*.eval.ts`
 - `test/unit/`, `test/integration/`
 

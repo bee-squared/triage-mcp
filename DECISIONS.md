@@ -2,6 +2,28 @@
 
 Notable choices and departures from the PRD, newest first.
 
+## 2026-11-28: Shape the agent loop, its traces and the `triage` CLI
+
+**Context:** PR 11 adds the agent loop the CLI and evals share (FR-27 to FR-31). The PRD wants a hand-written loop with a 12-call cap, a JSON trace per run, a model flag defaulting to Sonnet 5.5 and a scenario flag. It doesn't say how to count the cap when one turn asks for several calls, how to call Claude (tool choice, thinking, caching), or what the trace holds beyond "messages, tool calls, arguments, results, token usage, latency".
+
+**Decision:**
+
+- The loop connects to a fresh server and acknowledgement store per run through a real MCP client over an in-memory transport (`src/agent/mcp.ts`). Tool calls take the same protocol path as any client, so SDK validation errors and `_meta` error kinds reach the trace unchanged.
+- MCP tools become Claude tools as published, minus `$schema`. No `strict: true`: strict decoding would guarantee valid arguments, and the argument-validity scorer exists to catch invalid ones.
+- `tool_choice` is `auto`. Forcing a tool (`any` or `tool`) returns a 400 on Sonnet 5.5 (PRD correction in the plan), so the system prompt steers instead.
+- Thinking is left at the default (adaptive on all three models) with `effort: "medium"`, per the plan's cost estimate. PR 13 measures it. Top-level `cache_control` caches the tools, system prompt and earlier turns, so each turn pays mostly cache reads. The system prompt is a constant with no dates or IDs, so the prefix stays byte-identical across runs.
+- The whole assistant `content` is appended each turn, thinking blocks included, and history is never edited. All results from one turn go back in one user message.
+- The cap counts tool calls, not turns. When a turn asks for more calls than are left, the loop runs the ones that fit, in order, then stops with status `tool_cap`. A separate 20-request backstop covers `pause_turn` loops. `refusal`, `max_tokens` and API errors end the run with a status and a message a person can act on; tool calls in a cut-off response are not run. The loop never throws for API errors, so the CLI always writes a trace.
+- The CLI asks for the server-side refusal fallback (`fallbacks: "default"`) on Sonnet 5.5 and Opus 5.5; `--no-fallback` turns it off. Evals will run with it off, so a score measures one model. Haiku 5.5 has no server-side fallback, so the flag is ignored there. The trace records the model that served each turn, and a fallback turn is priced per model from `usage.iterations`.
+- `--model` accepts only models in the pricing table (`src/agent/pricing.ts`), so every run has a cost. Unknown models get the list of accepted ones.
+- Traces are versioned JSON in `.traces/` (gitignored): status, final text, each tool call with arguments, result, error kind and latency, per-turn usage, cost and latency, totals, the system prompt, tool names and the full message history.
+- Output is plain text that reads the same without color: errors say `ERROR (kind)`. Color appears only on a terminal and never when `NO_COLOR` is set. Progress goes to stderr, the report to stdout. Exit codes: 0 answered, 1 no answer or no key, 2 bad arguments.
+- Without `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) the CLI prints what to do and exits before connecting. It doesn't try other credential sources, such as an `ant auth login` profile.
+
+**Trade-off:** running part of a parallel batch at the cap leaves the model's other calls unanswered, but the run is stopping anyway and the trace shows which ran. Pricing is a hand-kept table that will drift from the published rates. Haiku's higher rate above 100K-token prompts isn't modeled, since a triage run stays far below that. The system prompt overlaps the `triage_outage` prompt and could drift from it.
+
+**Revisit when:** PR 13 measures cost and pass rate at other effort levels, an eval shows the model ignoring `auto` tool choice, or a run needs more than 12 calls to answer a fair question.
+
 ## 2026-11-27: Shape the catalog and runbook resources and the `triage_outage` prompt
 
 **Context:** PR 10 adds the PRD's 2 resources and 1 prompt (FR-18 to FR-20). The PRD gives the catalog's content ("all services with team, tier, SLOs, dependencies") but no format, says runbooks are markdown, and says the prompt returns "a structured triage instruction". It doesn't say what a bad runbook URI or a bad prompt argument returns.
