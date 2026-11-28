@@ -29,6 +29,19 @@ describe("server", () => {
 	it("lists exactly the 8 MVP tools (FR-8)", () => {
 		expect(tools.map((t) => t.name).sort()).toEqual([...ALL_TOOLS].sort());
 	});
+
+	it("exposes 2 resources and 1 prompt (FR-18 to FR-20)", async () => {
+		const { resources } = await h.client.listResources();
+		const { resourceTemplates } = await h.client.listResourceTemplates();
+		const { prompts } = await h.client.listPrompts();
+		expect(resources.filter((r) => !r.uri.startsWith("runbook://"))).toEqual([
+			expect.objectContaining({ uri: "catalog://services" }),
+		]);
+		expect(resourceTemplates.map((t) => t.uriTemplate)).toEqual([
+			"runbook://{runbook_id}",
+		]);
+		expect(prompts.map((p) => p.name)).toEqual(["triage_outage"]);
+	});
 });
 
 const ALL_TOOLS = [
